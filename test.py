@@ -7,8 +7,7 @@ from coresql.utils.geo import Point2D
 
 ## must setup environment before core.* related imports
 sys.path.extend(['./', '../'])
-#os.environ["DJANGO_SETTINGS_MODULE"] = "envived.settings"
-os.environ["DJANGO_SETTINGS_MODULE"] = "envsocial.settings"
+os.environ["DJANGO_SETTINGS_MODULE"] = "envived.settings"
 
 
 from coresql.models import *
@@ -206,7 +205,7 @@ def urllib_header_test():
     import email.utils as eut
     from datetime import datetime
     
-    f = urllib2.urlopen("http://127.0.0.1:8000/envsocial/client/v1/resources/environment/1/?format=xml")
+    f = urllib2.urlopen("http://127.0.0.1:8000/envived/client/v1/resources/environment/1/?format=xml")
     print f.code
     header_info = f.info()
     h_date = header_info.get('Date')
@@ -239,7 +238,7 @@ def parse_program():
         tag = session_elem.attributes["tag"].value
         date = datetime.datetime.strptime(session_elem.attributes["date"].value, "%d-%m-%Y")
 
-        ses = {"id" : str(ses_ct), "title" : title, "tag" : tag, "location" : "/envsocial/client/v1/resources/environment/1/"}
+        ses = {"id" : str(ses_ct), "title" : title, "tag" : tag, "location" : "/envived/client/v1/resources/environment/1/"}
         ses_ct += 1
 
         sessions.append(ses)

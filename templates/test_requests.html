@@ -9,13 +9,13 @@
   				// make here a checkin request
   				// if successfull - post an annotation
   				checkin_data = {'clientrequest':'true', 'environment':1}
-  				$.post('/envsocial/client/v1/actions/checkin/', checkin_data, 
+  				$.post('/envived/client/v1/actions/checkin/', checkin_data, 
   					function(response){
   						$( "#checkin_result" ).empty().append( response );
   						if (response.success) {
   							post_annotation();
-  							//delete_annotation("/envsocial/client/v1/resources/annotation/30/");
-  							//put_annotation("/envsocial/client/v1/resources/annotation/39/");
+  							//delete_annotation("/envived/client/v1/resources/annotation/30/");
+  							//put_annotation("/envived/client/v1/resources/annotation/39/");
   						}
   					},
   					"json"
@@ -38,10 +38,10 @@
 											]}
 									]}
 				
-				var content = {"environment": "/envsocial/client/v1/resources/environment/1/", "data" : ann_data}
+				var content = {"environment": "/envived/client/v1/resources/environment/1/", "data" : ann_data}
 				
 				$.ajax({
-					url: "/envsocial/client/v1/resources/annotation/",
+					url: "/envived/client/v1/resources/annotation/",
 					success: function(response){
   						console.log(response);
   						$( "#annotation_result" ).empty().append( response );
@@ -90,7 +90,7 @@
 											]}
 									]}
 				
-				var content = {"environment": "/envsocial/client/v1/resources/environment/1/", "data" : ann_data}
+				var content = {"environment": "/envived/client/v1/resources/environment/1/", "data" : ann_data}
 				
 				$.ajax({
 					url: ann_uri,

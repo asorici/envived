@@ -12,7 +12,7 @@ c2dm_requests.log
 .classpath
 settings.py
 urls.py
-envsocial.sql
+envived.sql
 order_item_rank_refresh_cron.py
 program-v1-custom.json
 program-v1-custom.xml
