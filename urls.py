@@ -47,13 +47,13 @@ urlpatterns = patterns('',
     url(r'^envived/media/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.MEDIA_ROOT}),
     
     #(r'^envived/resources/client/', include(v1_api.urls)),
-    (r'^envived/client/', include('apps.client.urls')),
+    (r'^envived/client/', include('client.urls')),
     (r'^envived/test/$', direct_to_template, {'template': 'test_requests.html'}),
     
     ## connecting with facebook for registration, login, connection
     (r'^facebook/', include('django_facebook.urls')),
     
     ## normal (email, password based) registration, login, activation, password change
-    (r'^accounts/', include('apps.frontend.registration_urls')),
+    (r'^accounts/', include('frontend.registration_urls')),
     
 )

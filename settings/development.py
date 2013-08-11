@@ -48,7 +48,7 @@ SECRET_KEY = 'bk&0+jr44xik=*wdw-p+o^m4z@l31b9m8)f9yv3qwl#lj*5bwo'
 
 
 MIDDLEWARE_CLASSES = (
-    'envived.client.middleware.ClientCheckinUrlRedirectMiddleware',
+    'client.middleware.ClientCheckinUrlRedirectMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     #'django.middleware.csrf.CsrfViewMiddleware',

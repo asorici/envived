@@ -9,6 +9,5 @@ c2dm_requests.log
 .metadata/
 .classpath
 settings.py
-urls.py
 envived.sql
 order_item_rank_refresh_cron.py
