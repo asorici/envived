@@ -2,7 +2,7 @@ import sys
 
 sys.path.insert(0, '/home/alex/Desktop/aquasoft/testproj/envived')
 
-import settings
+import settings.development as settings
 
 import django.core.management
 django.core.management.setup_environ(settings)
