@@ -1,5 +1,5 @@
 from django.conf.urls.defaults import patterns, include, url
-from django.views.generic.simple import direct_to_template
+from django.views.generic import TemplateView
 
 
 # Uncomment the next two lines to enable the admin:
@@ -48,12 +48,13 @@ urlpatterns = patterns('',
     
     #(r'^envived/resources/client/', include(v1_api.urls)),
     (r'^envived/client/', include('client.urls')),
-    (r'^envived/test/$', direct_to_template, {'template': 'test_requests.html'}),
+    (r'^envived/test/$', TemplateView.as_view(template_name='test_requests.html')),
     
     ## connecting with facebook for registration, login, connection
     (r'^facebook/', include('django_facebook.urls')),
     
     ## normal (email, password based) registration, login, activation, password change
-    (r'^accounts/', include('frontend.registration_urls')),
+    #(r'^accounts/', include('frontend.registration_urls')),
+    (r'^accounts/', include('registration.backends.default.urls')),
     
 )
