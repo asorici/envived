@@ -1,0 +1,40 @@
+# mime-parse
+mimeparse>=0.1.3
+
+# python-dateutil
+python-dateutil>=2.1
+
+# django
+Django>=1.5
+
+# lxml for xml serialization in django-tastypie
+lxml
+
+# defusedxml for xml serialization in django-tastypie
+defusedxml
+
+# django-tastypie version 0.10.0
+django-tastypie==0.10.0
+
+# django-registration version 1.0
+django-registration
+
+# django-model-utils - required for implicit casting to required model class in case
+# of model inheritance
+django-model-utils
+
+# django-facebook
+django_facebook
+
+# django-haystack for indexing and search of data from django models
+django-haystack>=2.1.0
+
+# python-gcm for google cloud messaging usage from Envived server
+python-gcm>=0.1.4
+
+# python pytz for timezone management on Envived server
+pytz==2013b
+
+# python-qrcode for generating qr-codes that identify the environments and areas 
+# stored in the Envived server database
+qrcode
