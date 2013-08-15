@@ -1,15 +1,11 @@
 import sys, os
-from coresql.db.objects import DateTimeList, AreaShape
-from coresql.utils.geo import Point2D
-
-#from pycassa.system_manager import *
-#from pycassa.columnfamily import ColumnFamily
 
 ## must setup environment before core.* related imports
-sys.path.extend(['./', '../'])
-os.environ["DJANGO_SETTINGS_MODULE"] = "envived.settings"
+sys.path.extend(['./', './apps'])
+os.environ["DJANGO_SETTINGS_MODULE"] = "settings.development"
 
-
+from coresql.db.objects import DateTimeList, AreaShape
+from coresql.utils.geo import Point2D
 from coresql.models import *
 from django.contrib.auth.models import User
 from django.utils import simplejson
