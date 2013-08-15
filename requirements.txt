@@ -1,8 +1,8 @@
 # MySQL-python for Django communication with a MySQL database
 MySQL-python>=1.2.4
 
-# PIL library for handling images
-PIL
+# install pillow - better fork of PIL library for handling images
+pillow
 
 # mime-parse
 mimeparse>=0.1.3
