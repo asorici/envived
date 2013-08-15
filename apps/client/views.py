@@ -319,8 +319,10 @@ def checkin_succeeded(request, user, area = None, env = None, virtual = False):
     if area:
         ## return data about the area resource
         ar = AreaResource()
-        ar_item = ar.obj_get(pk=area.id)
-        ar_bundle = ar.build_bundle(obj = ar_item, request=request)
+        ar_bundle = ar.build_bundle()
+        ar_item = ar.obj_get(ar_bundle, pk=area.id)
+        ar_bundle.obj = ar_item
+        ar_bundle.request = request
         
         try:
             area_data = ar.full_dehydrate(ar_bundle).data
@@ -331,8 +333,10 @@ def checkin_succeeded(request, user, area = None, env = None, virtual = False):
     elif env:
         ## return data about the environment resource
         envr = EnvironmentResource()
-        envr_item = envr.obj_get(pk=env.id)
-        envr_bundle = envr.build_bundle(obj = envr_item, request=request)
+        envr_bundle = envr.build_bundle()
+        envr_item = envr.obj_get(envr_bundle, pk=env.id)
+        envr_bundle.obj = envr_item
+        envr_bundle.request = request
         
         try:
             env_data = envr.full_dehydrate(envr_bundle).data

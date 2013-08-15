@@ -136,7 +136,8 @@ class UserResource(ModelResource):
         ## apply a default sorting of user by their last_name
         return obj_list.order_by("user__last_name")
     
-    def obj_update(self, bundle, request=None, **kwargs):
+    
+    def obj_update(self, bundle, skip_errors=False, **kwargs):
         """
         Could be an intentional action that the default obj_update treats DoesNotExist and MultipleObjectReturned
         as acceptable exceptions which get transformed into a CREATE operation.
@@ -148,7 +149,8 @@ class UserResource(ModelResource):
             serdes = Serializer()
             deserialized = None
             try:
-                deserialized = serdes.deserialize(request.raw_post_data, format=request.META.get('CONTENT_TYPE', 'application/json'))
+                deserialized = serdes.deserialize(bundle.request.raw_post_data, 
+                                    format=bundle.request.META.get('CONTENT_TYPE', 'application/json'))
             except Exception:
                 deserialized = None
             del serdes
@@ -159,7 +161,7 @@ class UserResource(ModelResource):
             if 'unregister_c2dm' in deserialized and deserialized['unregister_c2dm'] == True:
                 bundle.data['c2dm_id'] = None
             
-            updated_bundle = super(UserResource, self).obj_update(bundle, request, **kwargs)
+            updated_bundle = super(UserResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
             return updated_bundle
         except (NotFound, MultipleObjectsReturned):
             raise ImmediateHttpResponse(response = http.HttpBadRequest())
@@ -388,7 +390,6 @@ class FeatureResource(ModelResource):
         
         feature_obj_list = super(FeatureResource, self).get_object_list(request)
         
-        
         if 'area' in request.GET:
             area_id = request.GET['area']
             try:
@@ -399,7 +400,6 @@ class FeatureResource(ModelResource):
                 return feature_obj_list.filter(q1 | q2)
             except Area.DoesNotExist:
                 raise ImmediateHttpResponse(response=http.HttpBadRequest())
-        
         
         return feature_obj_list
     
@@ -720,7 +720,7 @@ class AnnotationResource(ModelResource):
         
         
     
-    def obj_create(self, bundle, request=None, **kwargs):
+    def obj_create(self, bundle, **kwargs):
         """
         we use the obj_create method here so that the annotation mechanism may act as a temporary 
         (an Envived messaging mechanism should be built) message relay mechanism: 
@@ -730,8 +730,8 @@ class AnnotationResource(ModelResource):
         
         """TODO: the things below have to be refactored, big time"""
         ## because of the AnnotationAuthorization class, request.user will have a profile
-        user_profile = request.user.get_profile()
-        updated_bundle = super(AnnotationResource, self).obj_create(bundle, request, user=user_profile)
+        user_profile = bundle.request.user.get_profile()
+        updated_bundle = super(AnnotationResource, self).obj_create(bundle, user=user_profile)
         
         ## make notification for 'order' type annotations
         if bundle.data['category'] == 'order':
@@ -755,7 +755,7 @@ class AnnotationResource(ModelResource):
         return updated_bundle
     
     
-    def obj_update(self, bundle, request=None, **kwargs):
+    def obj_update(self, bundle, skip_errors=False, **kwargs):
         """
         Could be an intentional feature that the default obj_update treats DoesNotExist and MultipleObjectReturned
         as acceptable exceptions which get transformed into a CREATE operation.
@@ -763,7 +763,7 @@ class AnnotationResource(ModelResource):
         """
             
         try:
-            updated_bundle = super(AnnotationResource, self).obj_update(bundle, request, **kwargs)
+            updated_bundle = super(AnnotationResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
             
             ## make notification for 'order' type annotations
             if updated_bundle.data['category'] == Annotation.ORDER:
@@ -790,16 +790,17 @@ class AnnotationResource(ModelResource):
             raise ImmediateHttpResponse(response = http.HttpBadRequest())
     
     
-    def obj_delete(self, request=None, **kwargs):
+    def obj_delete(self, bundle, **kwargs):
         """
         Adapted version of the method in TastyPie's ModelResource
         to take into account the c2dm_notification need
         """
-        annObj = kwargs.pop('_obj', None)
+        #annObj = kwargs.pop('_obj', None)
+        annObj = bundle.obj
 
         if not hasattr(annObj, 'delete'):
             try:
-                annObj = self.obj_get(request, **kwargs)
+                annObj = self.obj_get(bundle=bundle, **kwargs)
             except ObjectDoesNotExist:
                 raise NotFound("A model instance matching the provided arguments could not be found.")
         
@@ -813,7 +814,11 @@ class AnnotationResource(ModelResource):
             if receiver_profile:
                 registration_id = receiver_profile.c2dm_id
             
-            bundle = AnnotationResource().build_bundle(obj = annObj)
+            # bundle = AnnotationResource().build_bundle(obj = annObj)
+            """
+            we don't need to build another one since the bundle already exists in this function,
+            as part of the new tastypie implementation
+            """
             
             params = {'type' : OrderFeature.RESOLVED_REQUEST,
                       'order_request': annObj.get_annotation_data()}
