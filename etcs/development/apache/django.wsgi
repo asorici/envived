@@ -1,6 +1,15 @@
 import sys
+from path import path
 
-sys.path.insert(0, '/home/alex/Desktop/aquasoft/testproj/envived')
+# set the required paths
+PROJECT_ROOT = path(__file__).abspath().dirname().dirname()
+SITE_ROOT = PROJECT_ROOT.dirname()
+
+#sys.path.insert(0, '/home/alex/Desktop/aquasoft/testproj/envived')
+sys.path.insert(0, PROJECT_ROOT)
+sys.path.insert(0, PROJECT_ROOT / 'apps')
+sys.path.insert(0, PROJECT_ROOT / 'libs')
+
 
 import settings.development as settings
 
