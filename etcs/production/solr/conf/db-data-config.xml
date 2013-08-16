@@ -1,0 +1,60 @@
+<dataConfig>
+    <dataSource driver="com.mysql.jdbc.Driver" url="jdbc:mysql://localhost/envived" user="root" password="GroundAce55" />
+    <document name="locations">        
+        <entity name="environment" transformer="TemplateTransformer" 
+        		query="select id, parent_id, name, tags from coresql_environment"
+                deltaQuery="select id from coresql_environment where timestamp > '${dataimporter.last_index_time}'">
+            <field column="id" name="id" />
+            <field column="parent_id" name="parent" />
+            <field column="locationType" template="environment" />
+            <field column="name" name="name" />
+            <field column="name" name="nameSort" />
+            <field column="name" name="alphaNameSort" />
+            <field column="tags" name="tags" />
+            <field column="uLocStr" template="environment${environment.id}"/>
+            
+            <entity name="environment_feature"  
+                    query="select data from coresql_feature where environment_id='${environment.id}' and category='default'"
+                    deltaQuery="select environment_id from coresql_feature where category='default' and timestamp > '${dataimporter.last_index_time}'"
+                    parentDeltaQuery="select id from coresql_environment where id=${environment_feature.environment_id}">
+                <field name="description" column="data" />
+            </entity>
+            
+            <!-- 
+            <entity name="item_category"
+                    query="select CATEGORY_ID from item_category where ITEM_ID='${item.ID}'"
+                    deltaQuery="select ITEM_ID, CATEGORY_ID from item_category where last_modified > '${dataimporter.last_index_time}'"
+                    parentDeltaQuery="select ID from item where ID=${item_category.ITEM_ID}">
+                <entity name="category"
+                        query="select DESCRIPTION from category where ID = '${item_category.CATEGORY_ID}'"
+                        deltaQuery="select ID from category where last_modified > '${dataimporter.last_index_time}'"
+                        parentDeltaQuery="select ITEM_ID, CATEGORY_ID from item_category where CATEGORY_ID=${category.ID}">
+                    <field column="description" name="cat" />
+                </entity>
+            </entity>
+             -->
+        </entity>
+        
+        <entity name="area" transformer="TemplateTransformer" 
+        		query="select id, environment_id, name, tags from coresql_area where areaType='interest'"
+                deltaQuery="select id from coresql_area where areaType='interest' and timestamp > '${dataimporter.last_index_time}'">
+            <field column="id" name="id" />
+            <field column="environment_id" name="parent" />
+            <field column="locationType" template="area" />
+            <field column="name" name="name" />
+            <field column="name" name="nameSort" />
+            <field column="name" name="alphaNameSort" />
+            <field column="tags" name="tags" />
+            <field column="uLocStr" template="area${area.id}"/>
+
+            <entity name="area_feature"  
+                    query="select data from coresql_feature where area_id='${area.id}' and category='default'"
+                    deltaQuery="select area_id from coresql_feature where category='default' and timestamp > '${dataimporter.last_index_time}'"
+                    parentDeltaQuery="select id from coresql_area where id=${area_feature.area_id}">
+                <field name="description" column="data" />
+            </entity>
+            
+        </entity>
+    </document>
+</dataConfig>
+
