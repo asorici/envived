@@ -701,6 +701,7 @@ class AnnotationResource(ModelResource):
         
         for _, cls in Annotation.get_subclasses():
             if cls.is_annotation_for(category, data):
+                print cls
                 try:
                     bundle.obj = cls(user = user, environment = environment, 
                                      area = area, category = category, data = data)
@@ -735,7 +736,7 @@ class AnnotationResource(ModelResource):
         
         ## make notification for 'order' type annotations
         if bundle.data['category'] == 'order':
-            from coresql.models import OrderFeature
+            from features.order.models import OrderFeature
             
             owner_profile = None
             if not bundle.obj.environment is None:
@@ -767,7 +768,7 @@ class AnnotationResource(ModelResource):
             
             ## make notification for 'order' type annotations
             if updated_bundle.data['category'] == Annotation.ORDER:
-                from coresql.models import OrderFeature
+                from features.order.models import OrderFeature
                 
                 owner_profile = None
                 if not bundle.obj.environment is None:
@@ -807,7 +808,7 @@ class AnnotationResource(ModelResource):
         ## if it is an order annotation that we are just solving
         ## send notification of handled order before deleting the object
         if annObj.category == Annotation.ORDER:
-            from coresql.models import OrderFeature
+            from features.order.models import OrderFeature
             
             receiver_profile = annObj.user
             registration_id = None

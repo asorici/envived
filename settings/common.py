@@ -1,15 +1,18 @@
 # Common Django settings for envived project.
-import sys
+import sys, os
 from path import path
 
 PROJECT_ROOT = path(__file__).abspath().dirname().dirname()
 SITE_ROOT = PROJECT_ROOT.dirname()
+APPS_ROOT = PROJECT_ROOT / 'apps'
+LIBS_ROOT = PROJECT_ROOT / 'libs'
+FEATURES_ROOT = APPS_ROOT / 'features'
 
 LOCALE_PATHS = (PROJECT_ROOT / 'locale',)
 
 sys.path.append(SITE_ROOT)
-sys.path.append(PROJECT_ROOT / 'apps')
-sys.path.append(PROJECT_ROOT / 'libs')
+sys.path.append(APPS_ROOT)
+sys.path.append(LIBS_ROOT)
 
 
 DEBUG = True
@@ -98,13 +101,24 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
+    
+    # The core application of the Envived service
     'coresql',
+
     'tastypie',
     'registration',
     'django_facebook',
     'haystack',
 )
 
+# Registering all applications in the features package
+for app_dir in FEATURES_ROOT.dirs():
+    if app_dir.files('models.py'):
+        app_dir_path = app_dir.relpath(start = APPS_ROOT)
+        app_module_path = ".".join(app_dir_path.splitall()[1:]) # ignore the first element in the splitall() because it is empty, as per documentation
+        INSTALLED_APPS += (app_module_path,)
+
+# Django-Registration configuration variable denoting number of days to wait for account activation
 ACCOUNT_ACTIVATION_DAYS = 7
 
 # A sample logging configuration. The only tangible logging

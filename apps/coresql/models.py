@@ -1,5 +1,4 @@
 from coresql.db import fields
-from coresql.exceptions import AnnotationException, DuplicateAnnotationException
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.fields.related import SingleRelatedObjectDescriptor
@@ -7,7 +6,6 @@ from django.db.models.signals import post_save
 from django_facebook.models import FacebookProfileModel
 from model_utils.managers import InheritanceManager
 import datetime
-
 
 
 CATEGORY_CHOICES = ( 
@@ -187,7 +185,7 @@ class Announcement(models.Model):
 
 
 """
-#################################### Annotation Model Classes #############################################
+##################################### Annotation Model Class ##############################################
 """
 class Annotation(models.Model):
     DESCRIPTION = "description"
@@ -207,6 +205,7 @@ class Annotation(models.Model):
     # retrieving sets of annotations
     objects = InheritanceManager()
     
+    """
     @staticmethod
     def get_subclasses():
         import sys
@@ -219,6 +218,35 @@ class Annotation(models.Model):
                     yield name, o
             except TypeError: 
                 pass
+    """
+    """
+    @staticmethod
+    def get_subclasses():
+        import sys
+        mod = sys.modules[Annotation.__module__]
+        
+        ## search for all classes defined in models of applications in the features package 
+        for module_key in sys.modules.keys():
+            module_key_elements = set(module_key.split("."))
+            if set(['features', 'models']).issubset(module_key_elements):
+                mod = sys.modules[module_key]
+        
+                for name in dir(mod):
+                    o = getattr(mod, name)
+                    try:
+                        if (o != Annotation) and issubclass(o, Annotation):
+                            yield name, o
+                    except TypeError: 
+                        pass
+    """
+    
+    ## Going with the easiest implementation for now
+    @staticmethod
+    def get_subclasses():
+        for cls in Annotation.__subclasses__():
+            yield cls.__name__, cls
+    
+             
     
     def __unicode__(self):
         location_name = None
@@ -259,283 +287,10 @@ class Annotation(models.Model):
     @classmethod
     def get_extra_filters(cls, filters):
         return {}
-        
-######################################## Description Class ##########################################
-class DescriptionAnnotation(Annotation):
-    text = models.TextField()
-    
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        
-        super(DescriptionAnnotation, self).__init__(*args, **kwargs)
-        
-        if not data is None:
-            if 'text' in data:
-                self.text = data['text']
-            else:
-                raise AnnotationException("Description Annotation missing text")
-    
-    def get_annotation_data(self):
-        return { 'text' : self.text }
-    
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.DESCRIPTION
-
-
-######################################## BoothDescription Class ##########################################
-class BoothDescriptionAnnotation(Annotation):
-    BOOTH_DESCRIPTION = "booth_description"
-    PRODUCT_DESCRIPTION = "product_description"
-    
-    TOPIC_CHOICES = (
-        (BOOTH_DESCRIPTION, BOOTH_DESCRIPTION), 
-        (PRODUCT_DESCRIPTION, PRODUCT_DESCRIPTION)
-    )
-    
-    topic_type = models.CharField(max_length = 32, choices = TOPIC_CHOICES, default="booth_description")
-    topic_title = models.CharField(max_length = 128)
-    text = models.TextField()
-    
-    booth_product = models.ForeignKey('BoothProduct', null = True, blank = True, related_name = 'annotations') 
-    
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        
-        super(BoothDescriptionAnnotation, self).__init__(*args, **kwargs)
-        
-        if not data is None:
-            if 'text' in data and 'topic_type' in data and 'topic_title' in data:
-                self.text = data['text']
-                self.topic_type = data['topic_type']
-                self.topic_title = data['topic_title']
-                
-                if self.topic_type == BoothDescriptionAnnotation.PRODUCT_DESCRIPTION and 'product_id' in data:
-                    try:
-                        product_id = data['product_id']
-                        self.booth_product = BoothProduct.objects.get(id = product_id)
-                    except BoothProduct.DoesNotExist:
-                        raise AnnotationException("BoothDescripionAnnotation missing valid product product_id")
-            else:
-                raise AnnotationException("Booth Description Annotation missing text, topic_type or topic_title")
-                
-    
-    
-    def get_annotation_data(self):
-        data_dict = {'topic_type' : self.topic_type,
-                     'topic_title' : self.topic_title,
-                     'text' : self.text 
-                    }
-        
-        if not self.booth_product is None:
-            data_dict['product_id'] = self.booth_product.id
-        
-        return data_dict
-    
-    
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.BOOTH_DESCRIPTION
-    
-    
-    @classmethod
-    def get_extra_filters(cls, filters):
-        specific_filters = {}
-        
-        ## just this single case for now
-        if "product_id" in filters:
-            try:
-                product = BoothProduct.objects.get(id = filters['product_id'])
-                specific_filters['id__in'] = [ann.id for ann in BoothDescriptionAnnotation.objects.filter(product = product)]
-            except BoothProduct.DoesNotExist:
-                pass
-            except Exception:
-                pass 
-        
-        return specific_filters
 
 
 
-class BoothProductVoteAnnotation(Annotation):
-    booth_product = models.ForeignKey('BoothProduct', related_name = 'votes') 
-    
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        
-        super(BoothProductVoteAnnotation, self).__init__(*args, **kwargs)
-        
-        if not data is None:
-            if 'product_id' in data:
-                try:
-                    product_id = data['product_id']
-                    self.booth_product = BoothProduct.objects.get(id = product_id)
-                    
-                    ''' annotation users can be NULL if they were anonymous and quit. Herein lies a potential error
-                    since a user who logs in as anonymous, votes, quits anonymous and logs back in as anonymous can
-                    vote several times for the same project. But as the feature is not essential, we're gonna let it slide.
-                    A fix would be to only allow actual logged in users to vote '''
-                    existing_vote_annotations = filter(lambda ann: not ann.user is None, self.booth_product.votes.all())
-                    
-                    if self.booth_product and self.user.id in [ann.user.id for ann in existing_vote_annotations]:
-                        raise DuplicateAnnotationException()
-                    
-                except BoothProduct.DoesNotExist:
-                    raise AnnotationException(msg="Booth Product Vote Annotation missing valid product product_id")
-            else:
-                raise AnnotationException(msg="Booth Product Vote Annotation missing product_id value")
-                
-    
-    
-    def get_annotation_data(self):
-        data_dict = { 'product_id' : self.booth_product.id }
-        if not self.booth_product.votes is None:
-            data_dict['product_votes'] = self.booth_product.votes.count()
-        
-        return data_dict
-    
-    
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.BOOTH_PRODUCT_VOTE
-    
-    
-    @classmethod
-    def get_extra_filters(cls, filters):
-        specific_filters = {}
-        
-        ## just this single case for now
-        if "product_id" in filters:
-            try:
-                product = BoothProduct.objects.get(id = filters['product_id'])
-                specific_filters['id__in'] = [ann.id for ann in BoothProductVoteAnnotation.objects.filter(booth_product = product)]
-            except BoothProduct.DoesNotExist:
-                pass
-            except Exception:
-                pass 
-        
-        return specific_filters
 
-
-##################################### PresentationAnnotation Class ########################################
-class ProgramAnnotation(Annotation):
-    text = models.TextField()
-    presentation = models.ForeignKey('Presentation', related_name = "annotations")
-    
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        
-        super(ProgramAnnotation, self).__init__(*args, **kwargs)
-        
-        if not data is None:
-            if 'text' in data and 'presentation_id' in data:
-                self.text = data['text']
-                
-                presentation_id = data['presentation_id']
-                try:
-                    self.presentation = Presentation.objects.get(id = presentation_id)
-                except Presentation.DoesNotExist:
-                    raise AnnotationException("ProgramAnnotation missing valid program presentation_id")
-            else:
-                raise AnnotationException("ProgramAnnotation missing text or presentation data")
-    
-    
-    def get_annotation_data(self):
-        return { 'text' : self.text }
-    
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.PROGRAM
-    
-    @classmethod
-    def get_extra_filters(cls, filters):
-        specific_filters = {}
-        
-        ## just this single case for now
-        if "presentation_id" in filters:
-            try:
-                presentation = Presentation.objects.get(id = filters['presentation_id'])
-                specific_filters['id__in'] = [ann.id for ann in ProgramAnnotation.objects.filter(presentation = presentation)]
-            except Presentation.DoesNotExist:
-                pass
-            except Exception:
-                pass 
-        
-        return specific_filters
-   
-######################################## OrderAnnotation Class ###########################################
-class OrderAnnotation(Annotation):
-    order = fields.DataField() 
-    
-    def __init__(self, *args, **kwargs):
-        data = kwargs.pop('data', None)
-        super(OrderAnnotation, self).__init__(*args, **kwargs)
-        
-        """
-        if not data is None:
-            if 'order' in data:
-                self.order = data
-            else:
-                raise AnnotationException("OrderAnnotation missing order data")
-        """
-        if not data is None:
-            self.order = data
-            
-            
-    def get_annotation_data(self):
-        return self.order.to_serializable()
-        
-    
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.ORDER
-    
-    
-    @classmethod
-    def validate_data(cls, category, annotation_data):
-        if not isinstance(annotation_data, dict):
-            return ["Annotation data is required to be a dictionary."]
-        else:
-            req_type = annotation_data.get('order_request_type')
-            
-            if req_type is None:
-                return ["No order_request_type specified in annotation data."]
-            elif not req_type in [OrderFeature.CALL_WAITER, OrderFeature.CALL_CHECK, OrderFeature.NEW_ORDER]:
-                return ["Unknown value `" + str(req_type) + "' for order request type."]
-            
-        return [] 
-    
-    
-    @staticmethod
-    def post_save_action(sender, instance, created, **kwargs):
-        import sys
-        
-        ## if the instance was newly created
-        if created:
-            order_instance = instance.order.data
-            
-            ## if the instance is a dictionary as it is supposed to be
-            if isinstance(order_instance, dict) and 'item_id_list' in order_instance:
-                try:
-                    order_items = order_instance['item_id_list']
-                    for item_dict in order_items:
-                        item_id = item_dict['id']
-                        item_quantity = item_dict['quantity']
-                        
-                        menu_item = MenuItem.objects.get(id = item_id)
-                        menu_item.num_orders_current += item_quantity
-                        
-                        menu_categ = menu_item.category
-                        menu_categ.num_orders_current += item_quantity
-                        
-                        menu_item.save()
-                        menu_categ.save()
-                        
-                except Exception, ex:
-                    print >> sys.stderr, ex
-                except KeyError, ke:
-                    print >> sys.stderr, ke
-                    
-post_save.connect(OrderAnnotation.post_save_action, sender = OrderAnnotation)
             
 """
 ############################### History and Context Model Classes ########################################
@@ -576,9 +331,8 @@ class UserContext(models.Model):
 
 
 """
-####################################### Feature Model Classes ###########################################
+######################################### Feature Model Class #############################################
 """
-
 class Feature(models.Model):
     area = models.ForeignKey(Area, null = True, blank = True, related_name = "features")
     environment = models.ForeignKey(Environment, null = True, blank = True, related_name = "features")
@@ -624,459 +378,3 @@ class Feature(models.Model):
     def get_feature_data(self, virtual, filters):
         return self.to_serializable(virtual = virtual, include_data = True)['data']
     
-
-####################################### Description Feature Class #############################################
-class DescriptionFeature(Feature):
-    description = models.TextField(null = True, blank = True)
-    newest_info = models.TextField(null = True, blank = True)
-    img_url = models.URLField(null = True, blank = True, max_length = 256)
-    
-    
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(DescriptionFeature, self).to_serializable(virtual=virtual, include_data=include_data)
-        
-        if include_data:
-            data_dict = {}
-            
-            if self.description:
-                data_dict['description'] = self.description
-                
-            if self.newest_info:
-                data_dict['newest_info'] = self.newest_info
-            
-            if self.img_url:
-                data_dict['img_url'] = self.img_url
-            
-            serialized_feature.update( {'data' : data_dict} )
-        
-        return serialized_feature
-    
-    
-    def get_feature_data(self, virtual, filters):
-        return self.to_serializable(virtual = virtual, include_data = True)['data']
-
-
-class BoothDescriptionFeature(Feature):
-    ## contact details
-    description = models.TextField(null = True, blank = True)
-    image_url = models.URLField(null = True, blank = True, max_length = 256)
-    
-    contact_email = models.EmailField(null = True, blank = True, max_length = 128)
-    contact_website = models.URLField(null = True, blank = True, max_length = 256)
-    
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(BoothDescriptionFeature, self).to_serializable(virtual=virtual, include_data=include_data)
-        
-        if include_data:
-            data_dict = { 'id' : self.id }
-            
-            if self.description:
-                data_dict['description'] = self.description
-            
-            ''' take tags from location to which this feature is attached '''
-            location = None
-            if not self.environment is None:
-                location = self.environment
-            elif not self.area is None:
-                location = self.area
-                
-            if location and location.tags:
-                data_dict['tags'] = location.tags.getList()
-            
-            if self.image_url:
-                data_dict['image_url'] = self.image_url
-            
-            if self.contact_email:
-                data_dict['contact_email'] = self.contact_email
-                
-            if self.contact_website:
-                data_dict['contact_website'] = self.contact_website
-            
-            
-            product_list = []
-            for product in self.products.all():
-                product_dict = {'product_id' : product.id,
-                                'product_name' : product.name,
-                                'product_description' : product.description}
-                
-                if product.image_url:
-                    product_dict['product_image_url'] = product.image_url
-                
-                if product.website_url:
-                    product_dict['product_website_url'] = product.website_url
-                
-                if product.votes:
-                    product_dict['product_votes'] = product.votes.count()
-                else:
-                    product_dict['product_votes'] = 0
-                    
-                product_list.append(product_dict)
-            
-            if product_list:
-                data_dict['products'] = product_list
-            
-            serialized_feature.update( {'data' : data_dict} )
-        
-        return serialized_feature
-    
-    def get_feature_data(self, virtual, filters):
-        return self.to_serializable(virtual = virtual, include_data = True)['data']
-    
-    
-class BoothProduct(models.Model):
-    booth = models.ForeignKey(BoothDescriptionFeature, related_name = "products")
-    name = models.CharField(max_length = 256)
-    description = models.TextField()
-    
-    image_url = models.URLField(null = True, blank = True, max_length = 256)
-    website_url = models.URLField(null = True, blank = True, max_length = 256)
-    
-    def __unicode__(self):
-        return self.name + " @ " + str(self.booth)
-    
-    
-###################################### Program Feature Classes ############################################
-class ProgramFeature(Feature):
-    QUERY_TYPES = ('presentation', 'speaker', 'search')
-    
-    description = models.TextField(null = True, blank = True)
-    
-    def to_serializable(self, virtual = False, include_data = False):
-        from client.api import EnvironmentResource, AreaResource
-        
-        serialized_feature = super(ProgramFeature, self).to_serializable(virtual=virtual, include_data=include_data)
-        
-        if include_data:
-            program_dict = {'data' : {'description' : self.description} }
-            
-            sessions_list = []
-            presentation_list = []
-            speaker_list = []
-            presentation_speakers_list = []
-            
-            sessions = self.sessions.all()
-            for s in sessions:
-                session_dict = {'id' : s.id,
-                                'title' : s.title,
-                                'tag' : s.tag,
-                               }
-                
-                ## we add the data of the area in which this session of presentations is to take place
-                session_dict['location_url'] = AreaResource().get_resource_uri(s.location)
-                session_dict['location_name'] = s.location.name
-                
-                sessions_list.append(session_dict)
-                
-                presentations = s.presentations.all().order_by('startTime')
-                for pres in presentations:
-                    presentation_dict = {'id' : pres.id,
-                                        'title' : pres.title,
-                                        'sessionId' : s.id,
-                                        'startTime' : pres.startTime.strftime("%Y-%m-%dT%H:%M:%S"),
-                                        'endTime' : pres.endTime.strftime("%Y-%m-%dT%H:%M:%S")
-                                        }
-                    if pres.abstract:
-                        presentation_dict['abstract'] = pres.abstract
-                    
-                    if pres.tags:
-                        presentation_dict['tags'] = ";".join(pres.tags.getList())
-                    
-                    presentation_list.append(presentation_dict)
-                    
-                    speakers = pres.speakers.all().order_by('last_name')
-                    for speaker in speakers:
-                        presentation_speaker_dict = {'presentation_id' : pres.id,
-                                                    'speaker_id': speaker.id
-                                                    }
-                        presentation_speakers_list.append(presentation_speaker_dict)
-                        
-                        if not any(d.get('id', None) == speaker.id for d in speaker_list):
-                            speaker_dict = {'id': speaker.id,
-                                            'first_name': speaker.first_name,
-                                            'last_name': speaker.last_name,
-                                            'affiliation': speaker.affiliation,
-                                            'position': speaker.position
-                                            }
-                                    
-                            if speaker.biography:
-                                speaker_dict['biography'] = speaker.biography
-                            
-                            if speaker.email:
-                                speaker_dict['email'] = speaker.email
-                            
-                            if speaker.online_profile_link:
-                                speaker_dict['online_profile_link'] = speaker.online_profile_link
-                            
-                            if speaker.image_url:
-                                speaker_dict['image_url'] = speaker.image_url
-                            
-                            speaker_list.append(speaker_dict)
-                        
-            """
-            distinct_program_days_list =\
-                Presentation.objects.values('startTime').\
-                    extra({'start_date' : "date(startTime)"}).values('start_date').distinct()
-            
-            program_days = map(lambda x: x['start_date'].strftime("%Y-%m-%dT%H:%M:%S"), 
-                                distinct_program_days_list)
-            """
-            program_dict['data']['program'] =  {#'program_days': program_days,
-                                                'sessions' : sessions_list, 
-                                                'presentations' : presentation_list,
-                                                'speakers': speaker_list,
-                                                'presentation_speakers' : presentation_speakers_list
-                                               }
-            
-            serialized_feature.update(program_dict)
-        
-        return serialized_feature
-    
-    
-    def get_feature_data(self, virtual, filters):
-        if 'querytype' in filters:
-            if filters['querytype'] in self.QUERY_TYPES:
-                if filters['querytype'] == 'presentation':
-                    presentation_id = filters.get('presentation_id')
-                    if not presentation_id:
-                        return None
-                    
-                    presentation = Presentation.objects.get(id = presentation_id)
-                    presentation_dict = {'id' : presentation.id,
-                                    'title' : presentation.title,
-                                    'sessionId' : presentation.session.id,
-                                    'sessionTitle' : presentation.session.title,
-                                    'startTime' : presentation.startTime.strftime("%Y-%m-%dT%H:%M:%S"),
-                                    'endTime' : presentation.endTime.strftime("%Y-%m-%dT%H:%M:%S"),
-                                 }
-                    
-                    if presentation.abstract:
-                        presentation_dict['abstract'] = presentation.abstract
-                        
-                    return presentation_dict
-                
-                elif filters['querytype'] == 'speaker':
-                    speaker_id = filters.get('speaker_id')
-                    if not speaker_id:
-                        return None
-                    
-                    speaker = Speaker.objects.get(id = speaker_id)
-                    speaker_dict = {'id': speaker.id,
-                                        'first_name': speaker.first_name,
-                                        'last_name': speaker.last_name,
-                                        'affiliation': speaker.affiliation,
-                                        'position': speaker.position
-                                        }
-                    
-                    if speaker.biography:
-                        speaker_dict['biography'] = speaker.biography
-                            
-                    if speaker.email:
-                        speaker_dict['email'] = speaker.email
-                            
-                    if speaker.online_profile_link:
-                        speaker_dict['online_profile_link'] = speaker.online_profile_link
-                        
-                    if speaker.image_url:
-                        speaker_dict['image_url'] = speaker.image_url
-                        
-                    return speaker_dict
-                    
-            else:
-                ## return None if the querytype is un-defined
-                return None
-        
-        else:
-            ## return the entire to_serializable data on program features; 
-            ## this can be the case when we query for the list of all features on the FeatureResource
-            return self.to_serializable(virtual = virtual, include_data = True)['data']
-        
-    
-    
-class Session(models.Model):
-    title = models.CharField(max_length = 256)
-    tag = models.CharField(max_length = 8)
-    program = models.ForeignKey(ProgramFeature, related_name = "sessions")
-    location = models.ForeignKey(Area, null = False)
-    
-    def save(self, *args, **kwargs):
-        ''' On save, update timestamp for associated program feature'''
-        self.program.timestamp = datetime.datetime.now()
-        self.program.save()
-        super(Session, self).save(*args, **kwargs)
-    
-    def __unicode__(self):
-        return self.title + " @ " + str(self.program)
-    
-
-class Presentation(models.Model):
-    session = models.ForeignKey(Session, related_name = "presentations")
-    speakers = models.ManyToManyField("Speaker", related_name = "presentations")
-    
-    title = models.CharField(max_length = 256)
-    startTime = models.DateTimeField()
-    endTime = models.DateTimeField()
-    
-    abstract = models.TextField(null = True, blank = True)
-    tags = fields.TagListField(null = True, blank = True)
-    
-    def save(self, *args, **kwargs):
-        ''' On save, update timestamp for associated program feature'''
-        self.session.program.timestamp = datetime.datetime.now()
-        self.session.program.save()
-        super(Presentation, self).save(*args, **kwargs)
-    
-    def __unicode__(self):
-        return self.title + " >> " + self.session.title
-
-        
-class Speaker(models.Model):
-    first_name = models.CharField(max_length = 64)
-    last_name = models.CharField(max_length = 64)
-    affiliation = models.CharField(max_length = 128)
-    position = models.CharField(max_length = 64)
-    
-    biography = models.TextField(null = True, blank = True)
-    email = models.EmailField(null = True, blank = True)
-    online_profile_link = models.URLField(null = True, blank = True)
-    image_url = models.URLField(null = True, blank = True)
-    
-    class Meta:
-        unique_together = ("first_name", "last_name")
-        
-    def __unicode__(self):
-        return self.first_name + " " + self.last_name + " (" + self.position + ", " + self.affiliation + ")"
-
-###################################### People Feature Classes ############################################
-"""
-This is mainly a hack so as to keep the programming model from the Android Application
-"""
-class PeopleFeature(Feature):
-    description = models.TextField(null = True, blank = True)
-    
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(PeopleFeature, self).to_serializable(virtual=virtual, include_data=include_data)
-        if include_data:
-            serialized_feature.update( {'data' : self.description} )
-        
-        return serialized_feature
-
-####################################### Order Feature Classes #############################################
-class OrderFeature(Feature):
-    NEW_REQUEST         = "new_request"
-    RESOLVED_REQUEST    = "resolved_request"
-    
-    NEW_ORDER           = "new_order"
-    CALL_WAITER         = "call_waiter"
-    CALL_CHECK          = "call_check"
-    UPDATE_CONTENT      = "update_content"
-    UPDATE_STRUCTURE    = "update_structure"
-    
-    """
-    For now replicates the old functionality and data model - a single level: category with items
-    """
-    description = models.TextField(null = True, blank = True)
-    
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(OrderFeature, self).to_serializable(virtual=virtual, include_data=include_data)
-        
-        if include_data:
-            order_dict = {'data' : {'description' : self.description} }
-            
-            categ_list = []
-            for menu_categ in self.menu_categories.all().order_by('name'):
-                menu_categ_dict = {'category' : {'id': menu_categ.id, 
-                                                 'name' : menu_categ.name, 
-                                                 'type' : menu_categ.categ_type}
-                                   }
-                
-                item_list = []
-                for menu_item in menu_categ.menu_items.all().order_by('-num_orders_prev', 'name'):
-                    menu_item_dict = {  'id' : menu_item.id,
-                                        'category_id' : menu_item.category_id,
-                                        'name' : menu_item.name,
-                                        'description' : menu_item.description,
-                                        'price' : str(menu_item.price),
-                                     }
-                    if menu_categ.num_orders_prev > 0:
-                        menu_item_dict['usage_rank'] = menu_item.num_orders_prev * 10 / menu_categ.num_orders_prev
-                    else:
-                        menu_item_dict['usage_rank'] = 0
-                    
-                    item_list.append(menu_item_dict)
-                
-                menu_categ_dict['items'] = item_list
-                
-                categ_list.append(menu_categ_dict)
-            
-            order_dict['data']['order_menu'] = categ_list             
-            serialized_feature.update(order_dict)
-        
-        return serialized_feature
-
-
-        
-class MenuCategory(models.Model):
-    TYPE_CHOICES = (
-        ("food", "food"), 
-        ("drinks", "drinks"),
-        ("desert", "desert")
-    )
-    
-    menu = models.ForeignKey(OrderFeature, related_name = "menu_categories")
-    name = models.CharField(max_length = 256)
-    categ_type = models.CharField(max_length = 32, choices = TYPE_CHOICES, default = "drinks")
-    
-    ## the following fields are for consumption based ranking
-    num_orders_current = models.IntegerField(default = 0)
-    num_orders_prev = models.IntegerField(default = 0)
-    
-    def __unicode__(self):
-        return self.name + " in menu -> " + self.menu.description
-    
-    
-class MenuItem(models.Model):
-    category = models.ForeignKey(MenuCategory, related_name = "menu_items")
-    name = models.CharField(max_length = 256)
-    description = models.TextField(null = True, blank = True)
-    price = models.FloatField()
-    
-    ## the following fields are for consumption based ranking
-    num_orders_current = models.IntegerField(default = 0)
-    num_orders_prev = models.IntegerField(default = 0)
-    
-    def __unicode__(self):
-        return self.name + " in category -> " + self.category.name
-
-
-####################################### Social Media Feature #############################################
-class SocialMediaFeature(Feature):
-    facebook_url = models.URLField(null = True, blank = True, max_length = 256)
-    twitter_url = models.URLField(null = True, blank = True, max_length = 256)
-    google_plus_url = models.URLField(null = True, blank = True, max_length = 256)
-    internal_forum_url = models.URLField(null = True, blank = True, max_length = 256)
-    
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(SocialMediaFeature, self).to_serializable(virtual=virtual, include_data=include_data)
-        
-        if include_data:
-            data_dict = {}
-            
-            if self.facebook_url:
-                data_dict['facebook_url'] = self.facebook_url
-                
-            if self.twitter_url:
-                data_dict['twitter_url'] = self.twitter_url
-            
-            if self.google_plus_url:
-                data_dict['google_plus_url'] = self.google_plus_url
-            
-            if self.internal_forum_url:
-                data_dict['internal_forum_url'] = self.internal_forum_url
-            
-            serialized_feature.update( {'data' : data_dict} )
-        
-        return serialized_feature
-    
-    
-    def get_feature_data(self, virtual, filters):
-        return self.to_serializable(virtual = virtual, include_data = True)['data']
