@@ -4,6 +4,8 @@ from coresql.exceptions import AnnotationException, DuplicateAnnotationException
 
 ######################################## BoothDescriptionFeature Class #########################################
 class BoothDescriptionFeature(Feature):
+    CATEGORY = "booth_description"
+    
     ## contact details
     description = models.TextField(null = True, blank = True)
     image_url = models.URLField(null = True, blank = True, max_length = 256)
@@ -68,11 +70,18 @@ class BoothDescriptionFeature(Feature):
     
     def get_feature_data(self, virtual, filters):
         return self.to_serializable(virtual = virtual, include_data = True)['data']
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import BoothDescriptionResource
+        return BoothDescriptionResource
         
 
 
 ###################################### BoothDescriptionAnnotation Class ########################################
 class BoothDescriptionAnnotation(Annotation):
+    CATEGORY = "booth_description_ann"
+    
     BOOTH_DESCRIPTION = "booth_description"
     PRODUCT_DESCRIPTION = "product_description"
     
@@ -122,11 +131,6 @@ class BoothDescriptionAnnotation(Annotation):
     
     
     @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.BOOTH_DESCRIPTION
-    
-    
-    @classmethod
     def get_extra_filters(cls, filters):
         specific_filters = {}
         
@@ -141,10 +145,17 @@ class BoothDescriptionAnnotation(Annotation):
                 pass 
         
         return specific_filters
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import BoothDescriptionAnnotationResource
+        return BoothDescriptionAnnotationResource
 
 
 
 class BoothProductVoteAnnotation(Annotation):
+    CATEGORY = "booth_product_vote_ann"
+    
     booth_product = models.ForeignKey('BoothProduct', related_name = 'votes') 
     
     def __init__(self, *args, **kwargs):
@@ -183,11 +194,6 @@ class BoothProductVoteAnnotation(Annotation):
     
     
     @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.BOOTH_PRODUCT_VOTE
-    
-    
-    @classmethod
     def get_extra_filters(cls, filters):
         specific_filters = {}
         
@@ -202,6 +208,12 @@ class BoothProductVoteAnnotation(Annotation):
                 pass 
         
         return specific_filters
+    
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import BoothProductVoteAnnotation
+        return BoothProductVoteAnnotation
 
 
 ############################################# BoothProduct Class ###############################################

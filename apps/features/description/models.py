@@ -5,6 +5,8 @@ from coresql.exceptions import AnnotationException
 
 ####################################### Description Feature Class #############################################
 class DescriptionFeature(Feature):
+    CATEGORY = "description"
+    
     description = models.TextField(null = True, blank = True)
     newest_info = models.TextField(null = True, blank = True)
     img_url = models.URLField(null = True, blank = True, max_length = 256)
@@ -32,11 +34,18 @@ class DescriptionFeature(Feature):
     
     def get_feature_data(self, virtual, filters):
         return self.to_serializable(virtual = virtual, include_data = True)['data']
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import DescriptionResource
+        return DescriptionResource
 
 
 
 ######################################## Description Annotation Class ##########################################
 class DescriptionAnnotation(Annotation):
+    CATEGORY = "description_ann"
+    
     text = models.TextField()
     
     def __init__(self, *args, **kwargs):
@@ -54,5 +63,7 @@ class DescriptionAnnotation(Annotation):
         return { 'text' : self.text }
     
     @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.DESCRIPTION
+    def get_resource_class(cls):
+        from api import DescriptionAnnotationResource
+        return DescriptionAnnotationResource
+    

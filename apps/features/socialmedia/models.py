@@ -3,6 +3,8 @@ from django.db import models
 
 ####################################### Social Media Feature #############################################
 class SocialMediaFeature(Feature):
+    CATEGORY = "social_media"
+    
     facebook_url = models.URLField(null = True, blank = True, max_length = 256)
     twitter_url = models.URLField(null = True, blank = True, max_length = 256)
     google_plus_url = models.URLField(null = True, blank = True, max_length = 256)
@@ -33,3 +35,8 @@ class SocialMediaFeature(Feature):
     
     def get_feature_data(self, virtual, filters):
         return self.to_serializable(virtual = virtual, include_data = True)['data']
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import SocialMediaResource
+        return SocialMediaResource

@@ -1,20 +1,17 @@
 from client.authorization import AnnotationAuthorization, UserAuthorization, \
     FeatureAuthorization
 from client.validation import AnnotationValidation
-from coresql.exceptions import AnnotationException, DuplicateAnnotationException
-from coresql.models import Environment, Area, Feature, Annotation, Announcement, \
-    History, UserProfile, ResearchProfile, UserContext, UserSubProfile
+from coresql.models import Environment, Area, Announcement, History, UserProfile, \
+    ResearchProfile, UserContext, UserSubProfile
 from coresql.utils import str2bool
 from datetime import datetime
-from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.conf.urls import patterns
+from django.core.exceptions import MultipleObjectsReturned
 from tastypie import fields, http
 from tastypie.api import Api
 from tastypie.authentication import Authentication
-from tastypie.exceptions import ImmediateHttpResponse, NotFound, HydrationError
+from tastypie.exceptions import ImmediateHttpResponse, NotFound
 from tastypie.resources import ModelResource
-
-#from coresql.forms import AnnotationForm
-#from tastypie.validation import FormValidation
 
 
 class UserResource(ModelResource):
@@ -205,12 +202,15 @@ class EnvironmentResource(ModelResource):
         ## return a list of dictionary values from the features of this environment
         feature_list = []
         for feature in bundle.obj.features.select_subclasses():
-            feat_dict = feature.to_serializable(virtual = virtual)
-            if feat_dict:
-                ## attach resource_uri and environment_uri
-                feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
-                feat_dict['environment'] = self.get_resource_uri(bundle)
-                feature_list.append(feat_dict)
+            feature_resource_class = feature.__class__.get_resource_class()
+            if feature_resource_class:
+                feat_dict = feature.to_serializable(virtual = virtual)
+                if feat_dict:
+                    ## attach resource_uri and environment_uri
+                    #feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
+                    feat_dict['resource_uri'] = feature_resource_class().get_resource_uri(feature)
+                    feat_dict['environment'] = self.get_resource_uri(bundle)
+                    feature_list.append(feat_dict)
                 
         return feature_list
     
@@ -305,25 +305,31 @@ class AreaResource(ModelResource):
         
         ## return a list of dictionary values from the features of this area
         feature_list = []
-        for feature in bundle.obj.features.all().select_subclasses():
-            feat_dict = feature.to_serializable(virtual = virtual)
-            if feat_dict:
-                ## attach resource_uri and area_uri
-                feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
-                feat_dict['area'] = self.get_resource_uri(bundle)
-                feature_list.append(feat_dict)
+        for feature in bundle.obj.features.select_subclasses():
+            feature_resource_class = feature.__class__.get_resource_class()
+            if feature_resource_class:
+                feat_dict = feature.to_serializable(virtual = virtual)
+                if feat_dict:
+                    ## attach resource_uri and area_uri
+                    # feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
+                    feat_dict['resource_uri'] = feature_resource_class().get_resource_uri(feature)
+                    feat_dict['area'] = self.get_resource_uri(bundle)
+                    feature_list.append(feat_dict)
         
         ## then see if environment features which also apply to the area are available - e.g. program, order
         environment = bundle.obj.environment
         environment_features = environment.features.select_subclasses().filter(is_general = True)
         
         for env_feat in environment_features:
-            feat_dict = env_feat.to_serializable(virtual = virtual)
-            if feat_dict:
-                ## attach resource_uri and area_uri
-                feat_dict['resource_uri'] = FeatureResource().get_resource_uri(env_feat)
-                feat_dict['environment'] = EnvironmentResource().get_resource_uri(environment)
-                feature_list.append(feat_dict)
+            env_feat_resource_class = feature.__class__.get_resource_class()
+            if env_feat_resource_class:
+                feat_dict = env_feat.to_serializable(virtual = virtual)
+                if feat_dict:
+                    ## attach resource_uri and area_uri
+                    #feat_dict['resource_uri'] = FeatureResource().get_resource_uri(env_feat)
+                    feat_dict['resource_uri'] = env_feat_resource_class().get_resource_uri(env_feat)
+                    feat_dict['environment'] = EnvironmentResource().get_resource_uri(environment)
+                    feature_list.append(feat_dict)
         
         return feature_list
     
@@ -361,8 +367,8 @@ class FeatureResource(ModelResource):
     data = fields.DictField()
     
     class Meta:
-        queryset = Feature.objects.select_subclasses()
-        resource_name = 'feature'
+        # queryset = Feature.objects.select_subclasses()
+        # resource_name = 'feature'
         allowed_methods = ['get']
         excludes = ['id', 'is_general']
         filtering = {
@@ -374,12 +380,28 @@ class FeatureResource(ModelResource):
         authorization = FeatureAuthorization()
     
     
+    def base_urls(self):
+        from django.conf.urls.defaults import url
+        from tastypie.utils.urls import trailing_slash
+        
+        """
+        The standard URLs this ``Resource`` should respond to.
+        """
+        return [
+            url(r"^features/(?P<resource_name>%s)%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('dispatch_list'), name="api_dispatch_list"),
+            url(r"^features/(?P<resource_name>%s)/schema%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_schema'), name="api_get_schema"),
+            url(r"^features/(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('get_multiple'), name="api_get_multiple"),
+            url(r"^features/(?P<resource_name>%s)/(?P<%s>\w[\w/-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('dispatch_detail'), name="api_dispatch_detail"),
+        ]
+    
+    
     def get_list(self, request, **kwargs):
         """
         override the list retrieval part to verify additionally that an ``area`` or ``environment`` 
         and a ``category`` filter exist otherwise reject the call with a HttpMethodNotAllowed
         """
-        if ('area' in request.GET or 'environment' in request.GET) and 'category' in request.GET:
+        # if ('area' in request.GET or 'environment' in request.GET) and 'category' in request.GET:
+        if 'area' in request.GET or 'environment' in request.GET:
             return super(FeatureResource, self).get_list(request, **kwargs)
         else:
             raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
@@ -398,8 +420,8 @@ class FeatureResource(ModelResource):
                 q2 = Q(environment = area.environment) & Q(is_general = True)
                 
                 return feature_obj_list.filter(q1 | q2)
-            except Area.DoesNotExist:
-                raise ImmediateHttpResponse(response=http.HttpBadRequest())
+            except Area.DoesNotExist, ex:
+                raise ImmediateHttpResponse(response=http.HttpBadRequest(content=ex.get_message()))
         
         return feature_obj_list
     
@@ -533,12 +555,14 @@ class AnnotationResource(ModelResource):
     data = fields.DictField()
     
     class Meta:
-        queryset = Annotation.objects.select_subclasses()
-        resource_name = 'annotation'
+        # queryset = Annotation.objects.select_subclasses()
+        # resource_name = 'annotation'
         detail_allowed_methods = ['get', 'put', 'delete']
         list_allowed_methods = ['get', 'post']
-        fields = ['category', 'timestamp']
-        #excludes = ['id', 'area']
+        ## need to put complete list of fields because otherwise the related ones will not get inherited in
+        ## subclasses of AnnotationResource. 
+        ## Not sure yet if this is desired functionality or a bug in Tastypie.
+        fields = ['environment', 'area', 'user', 'data', 'category', 'timestamp']
         filtering = {
             'area': ['exact'],
             'environment': ['exact'],
@@ -552,11 +576,28 @@ class AnnotationResource(ModelResource):
         validation = AnnotationValidation()
         always_return_data = True
     
+    
+    def base_urls(self):
+        from django.conf.urls.defaults import url
+        from tastypie.utils.urls import trailing_slash
+        
+        """
+        The standard URLs this ``Resource`` should respond to.
+        """
+        return [
+            url(r"^annotations/(?P<resource_name>%s)%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('dispatch_list'), name="api_dispatch_list"),
+            url(r"^annotations/(?P<resource_name>%s)/schema%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_schema'), name="api_get_schema"),
+            url(r"^annotations/(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('get_multiple'), name="api_get_multiple"),
+            url(r"^annotations/(?P<resource_name>%s)/(?P<%s>\w[\w/-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('dispatch_detail'), name="api_dispatch_detail"),
+        ]
             
+    
     def get_list(self, request, **kwargs):
         ## override the list retrieval part to verify additionally that an ``area`` or ``environment`` filter exists
         ## otherwise reject the call with a HttpMethodNotAllowed
-        if ('area' in request.GET or 'environment' in request.GET) and 'category' in request.GET:
+        
+        # if ('area' in request.GET or 'environment' in request.GET) and 'category' in request.GET:
+        if 'area' in request.GET or 'environment' in request.GET:
             return super(AnnotationResource, self).get_list(request, **kwargs)
         else:
             raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
@@ -578,14 +619,6 @@ class AnnotationResource(ModelResource):
           
         orm_filters = super(AnnotationResource, self).build_filters(filters)
         
-        ## we now that there has to be a category in filters because of the validation
-        category = filters['category']
-        for _, cls in Annotation.get_subclasses():
-            if cls.is_annotation_for(category, None):
-                categ_specific_filters = cls.get_extra_filters(filters)
-                orm_filters.update(categ_specific_filters)
-                break
-        
         return orm_filters
     
     
@@ -600,16 +633,16 @@ class AnnotationResource(ModelResource):
                 q2 = Q(area__in=list(environment.areas.all()))
                 
                 return super(AnnotationResource, self).get_object_list(request).filter(q1 | q2)
-            except Exception:
+            except Exception, ex:
                 #print ex
-                raise ImmediateHttpResponse(response=http.HttpBadRequest())
+                raise ImmediateHttpResponse(response=http.HttpBadRequest(content=ex.get_message()))
         
         return super(AnnotationResource, self).get_object_list(request)
     
     
     def dehydrate_data(self, bundle):
         ## return the data representation of this annotation according to its type
-        user_profile = bundle.request.user.get_profile()
+        # user_profile = bundle.request.user.get_profile()
         return bundle.obj.get_annotation_data()
         
     
@@ -667,92 +700,14 @@ class AnnotationResource(ModelResource):
         if not bundle.data['data']:
             del bundle.data['data']
         
-        
-        return bundle
-   
-   
-    
-    def hydrate(self, bundle):
-        #from coresql.models import DescriptionAnnotation, EntryAnnotation, Entry
-        """
-        switch after the annotation category and construct the appropriate annotation type object with
-        the given data
-        """
-        instantiated = False
-        
-        ## get all data from bundle.data
-        user = bundle.request.user.get_profile()
-        
-        category = bundle.data['category']
-        data = bundle.data['data']
-        environment = None 
-        area = None
-        
-        try:
-            environment = EnvironmentResource().get_via_uri(bundle.data['environment'], request=bundle.request)
-        except:
-            environment = None
-            
-        try:
-            area = AreaResource().get_via_uri(bundle.data['area'], request=bundle.request)
-        except:
-            area = None 
-        
-        
-        for _, cls in Annotation.get_subclasses():
-            if cls.is_annotation_for(category, data):
-                print cls
-                try:
-                    bundle.obj = cls(user = user, environment = environment, 
-                                     area = area, category = category, data = data)
-                    instantiated = True
-                    break
-                except DuplicateAnnotationException, e:
-                    raise ImmediateHttpResponse(response=http.HttpForbidden(content=e.get_message()))
-                except AnnotationException, ex:
-                    raise ImmediateHttpResponse(response=http.HttpBadRequest(content=ex.get_message()))
-                
-        
-        if not instantiated:
-            raise ImmediateHttpResponse(response=http.HttpBadRequest(
-                content="No class found for annotation category (" + category + ") or incorrect data parameters"))
-        
         return bundle
         
         
-    
     def obj_create(self, bundle, **kwargs):
-        """
-        we use the obj_create method here so that the annotation mechanism may act as a temporary 
-        (an Envived messaging mechanism should be built) message relay mechanism: 
-        depending on the is_message flag contained within the annotation data, the annotation is
-        either stored for persistancy or it is just forwarded as a GCM message to the appropriate receiver
-        """
-        
-        """TODO: the things below have to be refactored, big time"""
         ## because of the AnnotationAuthorization class, request.user will have a profile
         user_profile = bundle.request.user.get_profile()
         updated_bundle = super(AnnotationResource, self).obj_create(bundle, user=user_profile)
         
-        ## make notification for 'order' type annotations
-        if bundle.data['category'] == 'order':
-            from features.order.models import OrderFeature
-            
-            owner_profile = None
-            if not bundle.obj.environment is None:
-                owner_profile = bundle.obj.environment.owner
-                            
-            if not bundle.obj.area is None:
-                owner_profile = bundle.obj.area.environment.owner
-                            
-            registration_id = None
-            if owner_profile:
-                registration_id = owner_profile.c2dm_id
-            
-            collapse_key = "feature_annotation"
-            self._make_c2dm_notification(registration_id, collapse_key, updated_bundle, 
-                params = {'type' : OrderFeature.NEW_REQUEST})
-            
         return updated_bundle
     
     
@@ -762,70 +717,13 @@ class AnnotationResource(ModelResource):
         as acceptable exceptions which get transformed into a CREATE operation.
         We don't want such a behavior. So we catch those exceptions and throw a BadRequest message
         """
-            
         try:
             updated_bundle = super(AnnotationResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
-            
-            ## make notification for 'order' type annotations
-            if updated_bundle.data['category'] == Annotation.ORDER:
-                from features.order.models import OrderFeature
-                
-                owner_profile = None
-                if not bundle.obj.environment is None:
-                    owner_profile = bundle.obj.environment.owner
-                    
-                if not bundle.obj.area is None:
-                    owner_profile = bundle.obj.area.environment.owner
-                    
-                registration_id = None
-                if owner_profile:
-                    registration_id = owner_profile.c2dm_id
-                
-                collapse_key = "annotation_" + Annotation.ORDER
-                
-                self._make_c2dm_notification(registration_id, collapse_key, updated_bundle, 
-                                             params = {'type' : OrderFeature.NEW_ORDER})
-            
             return updated_bundle
-        except (NotFound, MultipleObjectsReturned):
-            raise ImmediateHttpResponse(response = http.HttpBadRequest())
-    
-    
-    def obj_delete(self, bundle, **kwargs):
-        """
-        Adapted version of the method in TastyPie's ModelResource
-        to take into account the c2dm_notification need
-        """
-        #annObj = kwargs.pop('_obj', None)
-        annObj = bundle.obj
-
-        if not hasattr(annObj, 'delete'):
-            try:
-                annObj = self.obj_get(bundle=bundle, **kwargs)
-            except ObjectDoesNotExist:
-                raise NotFound("A model instance matching the provided arguments could not be found.")
-        
-        ## if it is an order annotation that we are just solving
-        ## send notification of handled order before deleting the object
-        if annObj.category == Annotation.ORDER:
-            from features.order.models import OrderFeature
-            
-            receiver_profile = annObj.user
-            registration_id = None
-            if receiver_profile:
-                registration_id = receiver_profile.c2dm_id
-            
-            # bundle = AnnotationResource().build_bundle(obj = annObj)
-            """
-            we don't need to build another one since the bundle already exists in this function,
-            as part of the new tastypie implementation
-            """
-            
-            params = {'type' : OrderFeature.RESOLVED_REQUEST,
-                      'order_request': annObj.get_annotation_data()}
-            self._make_c2dm_notification(registration_id, None, bundle, params = params)
-        
-        annObj.delete()
+        except NotFound, enf:
+            raise ImmediateHttpResponse(response = http.HttpBadRequest(content=enf.get_message()))
+        except MultipleObjectsReturned, emult:
+            raise ImmediateHttpResponse(response = http.HttpBadRequest(content=emult.get_message()))
     
     
     
@@ -870,7 +768,6 @@ class AnnotationResource(ModelResource):
             
                 # Receive data from the server and shut down
                 received = sock.recv(1024)
-                
                 
                 if received == "OK":
                     print >> sys.stderr, "[Annotation GCM] Notification enqueued"
@@ -949,7 +846,44 @@ class ClientApi(Api):
     
     def __init__(self, *args, **kwargs):
         super(ClientApi, self).__init__(*args, **kwargs)
+    
+    '''
+    def prepend_urls(self):
+        from django.conf.urls.defaults import url, include
+        from client.views import checkin, checkout, login, logout, register, create_anonymous, delete_anonymous
+        
+        prepended_urls = Api.prepend_urls(self)
+        
+        ## add all general actions
+        prepended_urls.extend([
+            url(r"^%s/actions/create_anonymous/$" % self.api_name, create_anonymous, name="create_anonymous"),
+            url(r"^%s/actions/delete_anonymous/$" % self.api_name, delete_anonymous, name="delete_anonymous"),
+            url(r"^%s/actions/register/$" % self.api_name, register, name="register"),
+            url(r"^%s/actions/login/$" % self.api_name, login, name="login"),
+            url(r"^%s/actions/logout/$" % self.api_name, logout, name="logout"),
+            url(r"^%s/actions/checkin/$" % self.api_name, checkin, name="checkin"),
+            url(r"^%s/actions/checkout/$" % self.api_name, checkout, name="checkout")
+        ])
+        
+        ## add all per feature resource urls
+        """
+        for feat_res_cls in FeatureResource.__subclasses__():
+            prepended_urls.append(url(r"^(?P<api_name>%s)/resources/features/" % self.api_name, include(feat_res_cls().urls)))
+            
+        ## add all per feature annotation urls
+        for ann_res_cls in AnnotationResource.__subclasses__():
+            prepended_urls.append(url(r"^(?P<api_name>%s)/resources/annotations/" % self.api_name, include(ann_res_cls().urls)))
+        """
+        
+        ## add all client api urls under the `resources' url-path
+        for name in sorted(self._registry.keys()):
+            self._registry[name].api_name = self.api_name
+            prepended_urls.append(url(r"^(?P<api_name>%s)/resources/" % self.api_name, include(self._registry[name].urls)))
 
+        return prepended_urls
+    '''
+    
+    
     @property
     def urls(self):
         """
@@ -957,8 +891,8 @@ class ClientApi(Api):
         ``Resources`` beneath it.
         """
         
-        from django.conf.urls.defaults import url, include, patterns
-        from tastypie.utils import trailing_slash
+        from django.conf.urls.defaults import url, include
+        from tastypie.utils.urls import trailing_slash
         from client.views import checkin, checkout, login, logout, register, create_anonymous, delete_anonymous
         
         pattern_list = [
@@ -980,11 +914,13 @@ class ClientApi(Api):
             url(r"^%s/actions/checkout/$" % self.api_name, checkout, name="checkout")
         ])
 
-        urlpatterns = self.override_urls() + patterns('',
+        urlpatterns = self.prepend_urls()
+        
+        urlpatterns += patterns('',
             *pattern_list
         )
         return urlpatterns
-
+    
 
 #############################################################################################################
 #############################################################################################################

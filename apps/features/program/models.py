@@ -6,6 +6,8 @@ import datetime
 
 ########################################## ProgramFeature Class ###############################################
 class ProgramFeature(Feature):
+    CATEGORY = "program"
+    
     QUERY_TYPES = ('presentation', 'speaker', 'search')
     
     description = models.TextField(null = True, blank = True)
@@ -159,9 +161,16 @@ class ProgramFeature(Feature):
             ## this can be the case when we query for the list of all features on the FeatureResource
             return self.to_serializable(virtual = virtual, include_data = True)['data']
         
+    @classmethod
+    def get_resource_class(cls):
+        from api import ProgramResource
+        return ProgramResource
+        
 
 ######################################### ProgramAnnotation Class #############################################
 class ProgramAnnotation(Annotation):
+    CATEGORY = "program_ann"
+    
     text = models.TextField()
     presentation = models.ForeignKey('Presentation', related_name = "annotations")
     
@@ -186,9 +195,6 @@ class ProgramAnnotation(Annotation):
     def get_annotation_data(self):
         return { 'text' : self.text }
     
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.PROGRAM
     
     @classmethod
     def get_extra_filters(cls, filters):
@@ -206,6 +212,10 @@ class ProgramAnnotation(Annotation):
         
         return specific_filters
    
+    @classmethod
+    def get_resource_class(cls):
+        from api import ProgramAnnotationResource
+        return ProgramAnnotationResource
 
   
 ###################################### ProgramFeature Model Classes ###########################################

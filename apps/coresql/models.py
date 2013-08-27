@@ -8,17 +8,6 @@ from model_utils.managers import InheritanceManager
 import datetime
 
 
-CATEGORY_CHOICES = ( 
-    ("description", "description"),
-    ("booth_description", "booth_description"), 
-    ("booth_product_vote", "booth_product_vote"),
-    ("order", "order"),
-    ("program", "program"),
-    ("people", "people"),
-    ("social_media", "social_media"),
-    ("news_feed", "news_feed")
-)    
-
 """
 ####################################### UserProfile Model Classes ######################################## 
 """
@@ -188,17 +177,12 @@ class Announcement(models.Model):
 ##################################### Annotation Model Class ##############################################
 """
 class Annotation(models.Model):
-    DESCRIPTION = "description"
-    BOOTH_DESCRIPTION = "booth_description"
-    BOOTH_PRODUCT_VOTE = "booth_product_vote"
-    PROGRAM = "program"
-    ORDER = "order"
     
     area = models.ForeignKey(Area, null = True, blank = True, related_name = "annotations")
     environment = models.ForeignKey(Environment, null = True, blank = True, related_name = "annotations")
     user = models.ForeignKey(UserProfile, null = True, blank = True, on_delete=models.SET_NULL)
     #data = fields.DataField()
-    category = models.CharField(max_length=50, choices = CATEGORY_CHOICES, default="default")
+    category = models.CharField(max_length=50)
     timestamp = models.DateTimeField(auto_now = True)
     
     # use the inheritance manager to get access directly to subclasses of Annotation when 
@@ -223,7 +207,6 @@ class Annotation(models.Model):
     @staticmethod
     def get_subclasses():
         import sys
-        mod = sys.modules[Annotation.__module__]
         
         ## search for all classes defined in models of applications in the features package 
         for module_key in sys.modules.keys():
@@ -265,15 +248,6 @@ class Annotation(models.Model):
     def get_annotation_data(self):
         return None
     
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        """
-        - category provides type of annotation
-        - currently unused, but left for future purposes, annotation_data can also discriminate
-          between annotation classes
-        """
-        return False
-    
     
     @classmethod
     def validate_data(cls, category, annotation_data):
@@ -288,10 +262,12 @@ class Annotation(models.Model):
     def get_extra_filters(cls, filters):
         return {}
 
+    
+    @classmethod
+    def get_resource_class(cls):
+        return None
 
 
-
-            
 """
 ############################### History and Context Model Classes ########################################
 """    
@@ -336,7 +312,7 @@ class UserContext(models.Model):
 class Feature(models.Model):
     area = models.ForeignKey(Area, null = True, blank = True, related_name = "features")
     environment = models.ForeignKey(Environment, null = True, blank = True, related_name = "features")
-    category = models.CharField(max_length=50, choices = CATEGORY_CHOICES)
+    category = models.CharField(max_length=50)
     is_general = models.BooleanField(default = False)
     #data = fields.DataField(null = True, blank = True)
     version = models.SmallIntegerField(default = 1)
@@ -375,6 +351,12 @@ class Feature(models.Model):
         else:
             return "feature type(" + self.category + ") but no location assigned -- needs fix"
     
+    
     def get_feature_data(self, virtual, filters):
         return self.to_serializable(virtual = virtual, include_data = True)['data']
+    
+    
+    @classmethod
+    def get_resource_class(cls):
+        return None
     

@@ -6,6 +6,8 @@ from django.db import models
 This is mainly a hack so as to keep the programming model from the Android Application
 """
 class PeopleFeature(Feature):
+    CATEGORY = "people"
+    
     description = models.TextField(null = True, blank = True)
     
     def to_serializable(self, virtual = False, include_data = False):
@@ -14,3 +16,8 @@ class PeopleFeature(Feature):
             serialized_feature.update( {'data' : self.description} )
         
         return serialized_feature
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import PeopleResource
+        return PeopleResource

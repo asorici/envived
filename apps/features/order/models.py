@@ -6,6 +6,8 @@ from coresql.models import Feature, Annotation
 
 ########################################### OrderFeature Class #################################################
 class OrderFeature(Feature):
+    CATEGORY = "order"
+    
     NEW_REQUEST         = "new_request"
     RESOLVED_REQUEST    = "resolved_request"
     
@@ -56,10 +58,17 @@ class OrderFeature(Feature):
             serialized_feature.update(order_dict)
         
         return serialized_feature
+    
+    @classmethod
+    def get_resource_class(cls):
+        from api import OrderResource
+        return OrderResource
 
 
 ########################################## OrderAnnotation Class ##############################################
 class OrderAnnotation(Annotation):
+    CATEGORY = "order_ann"
+    
     order = fields.DataField() 
     
     def __init__(self, *args, **kwargs):
@@ -79,11 +88,6 @@ class OrderAnnotation(Annotation):
             
     def get_annotation_data(self):
         return self.order.to_serializable()
-        
-    
-    @classmethod
-    def is_annotation_for(cls, category, annotation_data):
-        return category == Annotation.ORDER
     
     
     @classmethod
@@ -130,6 +134,11 @@ class OrderAnnotation(Annotation):
                     print >> sys.stderr, ex
                 except KeyError, ke:
                     print >> sys.stderr, ke
+                    
+    @classmethod
+    def get_resource_class(cls):
+        from api import OrderAnnotationResource
+        return OrderAnnotationResource
                     
 post_save.connect(OrderAnnotation.post_save_action, sender = OrderAnnotation)
 
