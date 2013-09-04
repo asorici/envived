@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DB_USER="root"
+DB_USER="envived"
 DB_PASS="GroundAce55"
 DB_NAME="envived"
 
