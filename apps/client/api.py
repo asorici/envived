@@ -926,22 +926,6 @@ class ClientApi(Api):
 #############################################################################################################
 
 def get_virtual_flag_from_url(request):
-    """
-    import inspect
-    
-    print 'caller 1:', inspect.stack()[1]
-    print 'caller 2:', inspect.stack()[2]
-    print 'caller 3:', inspect.stack()[3]
-    print 'caller 4:', inspect.stack()[4]
-    print 'caller 5:', inspect.stack()[5]
-    print 'caller 6:', inspect.stack()[6]
-    print 'caller 7:', inspect.stack()[7]
-    print 'caller 8:', inspect.stack()[8]
-    print 'caller 9:', inspect.stack()[9]
-    print 'caller 10:', inspect.stack()[10]
-    print 'caller 11:', inspect.stack()[11]
-    print 'caller 12:', inspect.stack()[12]
-    """
     
     ## retrieve the value of the virtual flag
     virtual = str(request.GET.get('virtual'))    

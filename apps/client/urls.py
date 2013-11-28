@@ -1,4 +1,4 @@
-from django.conf.urls.defaults import patterns, include
+from django.conf.urls import patterns, include
 from client.api import ClientApi
 from client.api import EnvironmentResource, AreaResource, FeatureResource, AnnotationResource,\
         UserResource, HistoryResource, EnvrionmentContextResource
@@ -25,7 +25,6 @@ v2_api.register(EnvrionmentContextResource())
 # v2_api.register(FeatureResource())         # need no longer be registered as a prime resource
 # v2_api.register(AnnotationResource())      # need no longer be registered as a prime resource
 # v2_api.register(AnnouncementResource())    # will probably be registered on a per feature basis as well
-
         
 ## add all per feature resource classes to the api
 for feat_res_cls in FeatureResource.__subclasses__():

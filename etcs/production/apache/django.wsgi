@@ -11,7 +11,7 @@ sys.path.insert(0, PROJECT_ROOT / 'apps')
 sys.path.insert(0, PROJECT_ROOT / 'libs')
 
 
-import settings.development as settings
+import settings.production as settings
 
 import django.core.management
 django.core.management.setup_environ(settings)

@@ -1,7 +1,6 @@
 from tastypie import http
 from tastypie.exceptions import ImmediateHttpResponse
 from client.api import FeatureResource, AnnotationResource, EnvironmentResource, AreaResource
-from coresql.models import Annotation
 from coresql.exceptions import AnnotationException, DuplicateAnnotationException
 from models import BoothDescriptionFeature, BoothDescriptionAnnotation ,\
     BoothProductVoteAnnotation

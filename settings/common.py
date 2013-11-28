@@ -1,19 +1,19 @@
 # Common Django settings for envived project.
-import sys, os
+import sys
 from path import path
 
 PROJECT_ROOT = path(__file__).abspath().dirname().dirname()
 SITE_ROOT = PROJECT_ROOT.dirname()
+
 APPS_ROOT = PROJECT_ROOT / 'apps'
 LIBS_ROOT = PROJECT_ROOT / 'libs'
 FEATURES_ROOT = APPS_ROOT / 'features'
 
 LOCALE_PATHS = (PROJECT_ROOT / 'locale',)
 
-sys.path.append(SITE_ROOT)
-sys.path.append(APPS_ROOT)
-sys.path.append(LIBS_ROOT)
-
+sys.path.insert(0, LIBS_ROOT)
+sys.path.insert(0, APPS_ROOT)
+sys.path.insert(0, SITE_ROOT)
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -86,7 +86,7 @@ TEMPLATE_CONTEXT_PROCESSORS = (
     "django_facebook.context_processors.facebook",
 )
 
-
+AUTH_USER_MODEL = 'auth.User'
 AUTH_PROFILE_MODULE = 'coresql.UserProfile'
 
 INSTALLED_APPS = (
@@ -104,7 +104,6 @@ INSTALLED_APPS = (
     
     # The core application of the Envived service
     'coresql',
-
     'tastypie',
     'registration',
     'django_facebook',
