@@ -29,7 +29,7 @@ class NotificationHandler(View):
         
     
     def process_redis_messages(self, notification_subscriber, notification_queue):
-        print notification_subscriber.channels
+        # print notification_subscriber.channels
         messages = notification_subscriber.listen()
         
         while True:
@@ -49,7 +49,7 @@ class NotificationHandler(View):
         if not request.user.is_anonymous():
             user_id = request.user.id
             # print "User: ", request.user.email, request.user.username, request.user.id
-            print request.META
+            # print request.META
             
             if not self.queue_per_user.has_key(user_id):
                 ## create listener and queue
