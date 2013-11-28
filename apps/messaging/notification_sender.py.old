@@ -1,0 +1,85 @@
+'''
+Created on Oct 17, 2013
+
+@author: alex
+'''
+
+from gevent import monkey
+monkey.patch_all()
+
+import gevent
+from gevent import pywsgi
+from gevent import queue
+import redis, re
+
+ENVIVED_SERVER_ADDRESS = "localhost:8080"
+FORWARDED_FOR_SERVER_ADRESS = "127.0.0.1"
+
+''' create a regex for each interest URI: e.g. for the notification inbox by user '''
+USER_INBOX_URI_EXPR = "/envived/client/(?P<user_id>[A-Za-z0-9]+)/notifications/"
+USER_INBOX_REGEX = re.compile(USER_INBOX_URI_EXPR)
+
+
+def process_messages(body):
+    server = redis.Redis(host='localhost', port=6379, db=0)
+    client = server.pubsub()
+    client.subscribe('messages')
+    messages = client.listen()
+
+    while True:
+        message = messages.next()
+        print "Saw: %s" % message['data']
+
+        if message['data'] == 'quit':
+            body.put("Server closed.")
+            body.put(StopIteration)
+            break
+
+        body.put("<div>%s</div>\n" % message['data'])
+
+
+def handle(environ, start_response):
+    ## retrieve request information
+    request_host = environ['HTTP_HOST']
+    request_path = environ['PATH_INFO']
+    request_method = environ['REQUEST_METHOD']
+    x_forwarded_for = environ['HTTP_X_FORWARDED_FOR']
+    
+    ## check where the request is coming from and only accept local ones from the ENVIVED server
+    if x_forwarded_for == FORWARDED_FOR_SERVER_ADRESS and request_host == ENVIVED_SERVER_ADDRESS:
+        ## match request path against USER_INBOX_URI_EXPR
+        res = USER_INBOX_REGEX.match(request_path)
+        if res is not None:
+            ## retrieve user_id
+            user_id = res.group('user_id')
+            
+            start_response('200 OK', [('Content-Type', 'application/json')])
+            body = queue.Queue()
+            #body.put(' ' * 1000)
+            #body.put("<html><body><h1>Messages:</h1>")
+            gevent.spawn(process_messages, body)
+            return body
+        
+        msg = "Bad request path: " + request_path
+        return bad_request_response(start_response, msg)
+    
+    msg = "Access forbidden for host " + request_host
+    return access_forbidden_response(start_response, request_host)
+
+
+def access_forbidden_response(start_response, msg):
+    start_response('403 Forbidden', [('Content-Type', 'application/json')])
+    response = {"success": False, "code": 403, "data" : {"msg" : msg}}
+    return response
+
+
+def bad_request_response(start_response, msg):
+    start_response('400 Bad Request', [('Content-Type', 'application/json')])
+    response = {"success": False, "code": 400, "data" : {"msg" : msg}}
+    return response
+
+
+server = pywsgi.WSGIServer(('127.0.0.1', 8002), handle)
+print "Serving on http://127.0.0.1:8002..."
+server.serve_forever()
+

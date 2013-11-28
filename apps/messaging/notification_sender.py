@@ -1,0 +1,129 @@
+'''
+Created on Oct 17, 2013
+
+@author: alex
+'''
+import simplejson
+import gevent, redis, Queue
+from gevent import queue
+from django.http import HttpResponse
+from django.views.generic import View
+
+
+ENVIVED_PROXY_HOST = "localhost:8080"
+ENVIVED_MAIN_HOST = "127.0.0.1:8001"
+FORWARDED_FOR_SERVER_ADRESS = "127.0.0.1"
+
+class NotificationHandler(View):
+    QUEUE_SIZE = 100
+    REDIS_HOST = "localhost"
+    REDIS_PORT = 6379
+    QUIT_LISTENING = "quit"
+
+    def __init__(self):
+        self.queue_per_user = {}
+        self.subscriber_per_user = {}
+        self.fetcher_per_user = {}
+        
+        self.redis_server = redis.Redis(host=self.REDIS_HOST, port=self.REDIS_PORT, db=0)
+        
+    
+    def process_redis_messages(self, notification_subscriber, notification_queue):
+        print notification_subscriber.channels
+        messages = notification_subscriber.listen()
+        
+        while True:
+            message = messages.next()
+            # print "Saw: %s" % message['data']
+            if message['data'] == self.QUIT_LISTENING:
+                break
+            else:
+                if notification_queue.full():
+                    # remove last item with non blocking call
+                    notification_queue.get_nowait() 
+            
+                notification_queue.put(message)
+            
+    
+    def update_notifications(self, request):
+        if not request.user.is_anonymous():
+            user_id = request.user.id
+            # print "User: ", request.user.email, request.user.username, request.user.id
+            print request.META
+            
+            if not self.queue_per_user.has_key(user_id):
+                ## create listener and queue
+                user_notification_queue = queue.Queue(maxsize=self.QUEUE_SIZE)
+                user_notification_subscriber = self.redis_server.pubsub()
+                user_notification_subscriber.subscribe(str(user_id))
+                user_notification_fetcher = gevent.spawn(self.process_redis_messages, 
+                                                         user_notification_subscriber,
+                                                         user_notification_queue)
+                self.queue_per_user[user_id] = user_notification_queue
+                self.subscriber_per_user[user_id] = user_notification_subscriber
+                self.fetcher_per_user[user_id] = user_notification_fetcher
+            
+            message_list = []
+            user_notification_queue = self.queue_per_user[user_id]
+            try:
+                message = user_notification_queue.get()
+                message_list.append(message)
+                while not user_notification_queue.empty():
+                    message = user_notification_queue.get_nowait()
+                    message_list.append(message)
+            except Queue.Empty:
+                # print 'Could not get from the queue'
+                pass
+            
+            return new_notifications_response(request, message_list)
+            
+        return access_forbidden_response(request, "Anonymous users not allowed.") 
+    
+    
+    def cancel_notifications(self, request):
+        if request.META['HTTP_HOST'] != ENVIVED_MAIN_HOST:
+            return access_forbidden_response(request, "External unsubscribe request not allowed.")
+        
+        if request.method.upper() == "POST" and request.POST.get('user_id'): 
+            user_id = int(request.POST['user_id'])
+            if self.queue_per_user.has_key(user_id):
+                self.subscriber_per_user[user_id].close()
+                self.fetcher_per_user[user_id].kill(block=False)
+                del self.queue_per_user[user_id]
+                
+                return unsubscribe_ok_response(request)
+            else:
+                return bad_request_response(request, "No subscription exits for channel: " + str(user_id))
+        else:
+            return bad_request_response(request, "Unspecified channel name for notification cancellation.")
+    
+
+handler = NotificationHandler()
+update_notifications = handler.update_notifications
+cancel_notifications = handler.cancel_notifications
+
+
+def json_response(response, status_code, **kwargs):
+    kwargs.setdefault('content_type', 'application/json; charset=UTF-8')
+    http_response = HttpResponse(simplejson.dumps(response), **kwargs)
+    http_response.status_code = status_code
+    return http_response
+
+def unsubscribe_ok_response(request):
+    response = {"success": True, "code": 200, "data" : {}}
+    return json_response(response, 200)
+
+
+def new_notifications_response(request, message_list):
+    response = {"success": True, "code": 200, "data" : {"messages" : message_list}}
+    return json_response(response, 200)
+
+
+def access_forbidden_response(request, msg):
+    response = {"success": False, "code": 403, "data" : {"msg" : msg}}
+    return json_response(response, 403)
+
+
+def bad_request_response(request, msg):
+    response = {"success": False, "code": 400, "data" : {"msg" : msg}}
+    return json_response(response, 400)

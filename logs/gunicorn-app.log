@@ -1,0 +1,15 @@
+2013-10-17 21:16:40 [13430] [INFO] Starting gunicorn 18.0
+2013-10-17 21:16:40 [13430] [INFO] Listening at: http://127.0.0.1:8001 (13430)
+2013-10-17 21:16:40 [13430] [INFO] Using worker: sync
+2013-10-17 21:16:40 [13435] [INFO] Booting worker with pid: 13435
+/home/alex/work/aquasoft/testproj/envived-virtualenv/lib/python2.7/site-packages/django/conf/__init__.py:221: DeprecationWarning: You have no filters defined on the 'mail_admins' logging handler: adding implicit debug-false-only filter. See http://docs.djangoproject.com/en/dev/releases/1.4/#request-exceptions-are-now-always-logged
+  DeprecationWarning)
+
+2013-10-17 21:17:10 [13430] [INFO] Handling signal: int
+Module features.people.api not found.
+Module features.program.api not found.
+Module features.description.api not found.
+Module features.order.api not found.
+Module features.booth_description.api not found.
+Module features.socialmedia.api not found.
+2013-10-17 21:17:10 [13430] [INFO] Shutting down: Master
