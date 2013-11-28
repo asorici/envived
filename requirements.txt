@@ -1,3 +1,6 @@
+# GUnicorn WSGI server is used to serve the dynamic python/django views of the ENVIVED server
+gunicorn
+
 # MySQL-python for Django communication with a MySQL database
 MySQL-python>=1.2.4
 
@@ -11,7 +14,7 @@ mimeparse>=0.1.3
 python-dateutil>=2.1
 
 # django
-Django>=1.5
+Django==1.5
 
 # lxml for xml serialization in django-tastypie
 lxml
@@ -47,6 +50,12 @@ pytz==2013b
 # python-qrcode for generating qr-codes that identify the environments and areas 
 # stored in the Envived server database
 qrcode
+
+# install Gevent for enabling Envived notifications via long-polling WSGI server
+gevent
+
+# install Redis client to enable enqueing of _application_ and _agent module_ notifications and messages 
+redis
 
 # the path.py utilitary for managing paths in django settings files
 path.py
