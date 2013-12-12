@@ -8,7 +8,6 @@ import gevent, redis, Queue
 from gevent import queue
 from django.http import HttpResponse
 from django.views.generic import View
-from django.conf import settings
 
 
 ENVIVED_PROXY_HOST = "localhost:8080"
@@ -22,13 +21,14 @@ class NotificationHandler(View):
     QUIT_LISTENING = "quit"
 
     def __init__(self):
+        self.queue_per_user = {}
         self.subscriber_per_user = {}
         self.fetcher_per_user = {}
-        self.queues_per_user = {}
+        
         self.redis_server = redis.Redis(host=self.REDIS_HOST, port=self.REDIS_PORT, db=0)
         
     
-    def process_redis_messages(self, notification_subscriber, user_id):
+    def process_redis_messages(self, notification_subscriber, notification_queue):
         # print notification_subscriber.channels
         messages = notification_subscriber.listen()
         
@@ -38,50 +38,43 @@ class NotificationHandler(View):
             if message['data'] == self.QUIT_LISTENING:
                 break
             else:
-                for q in self.queues_per_user[user_id]:
-                    size = self.redis_server.rpush(q, message)
-                    if size > self.QUEUE_SIZE:
-                        self.redis_server.ltrim(size - self.QUEUE_SIZE, size - 1)
+                if notification_queue.full():
+                    # remove last item with non blocking call
+                    notification_queue.get_nowait() 
+            
+                notification_queue.put(message)
+                print "Notification QUEUE: ", notification_queue
             
     
     def update_notifications(self, request):
         if not request.user.is_anonymous():
             user_id = request.user.id
-            combined_key = str(user_id) + "-" + request.META['REMOTE_ADDR']
+            print "User: ", request.user.email, request.user.username, request.user.id
+            print request.META
             
-            print "User: ", request.user.email, request.user.username, request.user.id, request.META['REMOTE_ADDR']
-            # print request.META
-            
-            if not self.subscriber_per_user.has_key(user_id):
-                ## 1) Create an entry in the queue_per_user dict for the current client+IP combination
-                self.queues_per_user[user_id] = [ combined_key ]
-                
-                ## 2) Spawn a Listener Greenlet to retrieve messages from the pubsub queue of the user_id and
-                ##    put them in all user_id+IP matching lists
+            if not self.queue_per_user.has_key(user_id):
+                ## create listener and queue
+                user_notification_queue = queue.Queue(maxsize=self.QUEUE_SIZE)
                 user_notification_subscriber = self.redis_server.pubsub()
                 user_notification_subscriber.subscribe(str(user_id))
-                
-                user_notification_fetcher = gevent.spawn(self.process_redis_messages,
+                user_notification_fetcher = gevent.spawn(self.process_redis_messages, 
                                                          user_notification_subscriber,
-                                                         user_id)
+                                                         user_notification_queue)
+                self.queue_per_user[user_id] = user_notification_queue
                 self.subscriber_per_user[user_id] = user_notification_subscriber
                 self.fetcher_per_user[user_id] = user_notification_fetcher
-            else:
-                if not combined_key in self.queues_per_user[user_id]:
-                    ## In this case just create another entry for the new user_id+IP combination
-                    self.queues_per_user[user_id].append(combined_key)
-                    
-            message_list = []
-            message = self.redis_server.lpop(combined_key)
-            while message is not None:
-                message_list.append(message)
-                message = self.redis_server.lpop(combined_key)
             
-            ## if there were no pending messages block for one
-            if not message_list:
-                message = self.redis_server.blpop(combined_key, settings.RETRIEVE_MESSAGE_TIMEOUT)
-                if message is not None:
-                    message_list.append(message[1])
+            message_list = []
+            user_notification_queue = self.queue_per_user[user_id]
+            try:
+                message = user_notification_queue.get()
+                message_list.append(message)
+                while not user_notification_queue.empty():
+                    message = user_notification_queue.get_nowait()
+                    message_list.append(message)
+            except Queue.Empty:
+                # print 'Could not get from the queue'
+                pass
             
             return new_notifications_response(request, message_list)
             
@@ -94,10 +87,10 @@ class NotificationHandler(View):
         
         if request.method.upper() == "POST" and request.POST.get('user_id'): 
             user_id = int(request.POST['user_id'])
-            if self.queues_per_user.has_key(user_id):
+            if self.queue_per_user.has_key(user_id):
                 self.subscriber_per_user[user_id].close()
                 self.fetcher_per_user[user_id].kill(block=False)
-                del self.queues_per_user[user_id]
+                del self.queue_per_user[user_id]
                 
                 return unsubscribe_ok_response(request)
             else:
