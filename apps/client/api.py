@@ -321,7 +321,7 @@ class AreaResource(ModelResource):
         environment_features = environment.features.select_subclasses().filter(is_general = True)
         
         for env_feat in environment_features:
-            env_feat_resource_class = feature.__class__.get_resource_class()
+            env_feat_resource_class = env_feat.__class__.get_resource_class()
             if env_feat_resource_class:
                 feat_dict = env_feat.to_serializable(virtual = virtual)
                 if feat_dict:
