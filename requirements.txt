@@ -59,3 +59,6 @@ redis
 
 # the path.py utilitary for managing paths in django settings files
 path.py
+
+# simplejson
+simplejson
