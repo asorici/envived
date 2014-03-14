@@ -1,3 +1,4 @@
+import redis
 from client.decorators import allow_anonymous_profile, secure_required
 from coresql.forms import CheckinForm, LoginForm, ClientRegistrationForm
 from coresql.models import Environment, Area, UserContext, ResearchProfile

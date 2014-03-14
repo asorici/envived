@@ -92,8 +92,8 @@ class NotificationHandler(View):
         if request.META['HTTP_HOST'] != ENVIVED_MAIN_HOST:
             return access_forbidden_response(request, "External unsubscribe request not allowed.")
         
-        if request.method.upper() == "POST" and request.POST.get('user_id'): 
-            user_id = int(request.POST['user_id'])
+        if request.method.upper() == "POST" and not request.user.is_anonymous(): 
+            user_id = request.user.id
             if self.queues_per_user.has_key(user_id):
                 self.subscriber_per_user[user_id].close()
                 self.fetcher_per_user[user_id].kill(block=False)
