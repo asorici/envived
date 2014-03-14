@@ -90,15 +90,22 @@ class NotificationHandler(View):
     
     def cancel_notifications(self, request):
         
-        if request.method.upper() == "POST" and not request.user.is_anonymous(): 
+        if request.method.upper() == "POST" and not request.user.is_anonymous():
             user_id = request.user.id
-            if self.queues_per_user.has_key(user_id):
-                self.subscriber_per_user[user_id].close()
-                self.fetcher_per_user[user_id].kill(block=False)
-             
-                del self.subscriber_per_user[user_id]
-                del self.fetcher_per_user[user_id]
-                del self.queues_per_user[user_id]
+            combined_key = str(user_id) + "-" + request.META['REMOTE_ADDR']
+            
+            if self.queues_per_user.has_key(user_id) and combined_key in self.queues_per_user[user_id]:
+                ## remove queue for user that unsubscribes
+                self.queues_per_user[user_id].remove(combined_key)
+                
+                ## if the queue list for this user is empty, then delete entries and kill fetchers
+                if not self.queues_per_user[user_id]:
+                    self.subscriber_per_user[user_id].close()
+                    self.fetcher_per_user[user_id].kill(block=False)
+                 
+                    del self.subscriber_per_user[user_id]
+                    del self.fetcher_per_user[user_id]
+                    del self.queues_per_user[user_id]
                 
                 return unsubscribe_ok_response(request)
             else:
