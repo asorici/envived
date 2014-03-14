@@ -95,8 +95,13 @@ class NotificationHandler(View):
         if request.method.upper() == "POST" and not request.user.is_anonymous(): 
             user_id = request.user.id
             if self.queues_per_user.has_key(user_id):
+                ## stop listenting and kill greenlet
                 self.subscriber_per_user[user_id].close()
                 self.fetcher_per_user[user_id].kill(block=False)
+                
+                ## remove them from the map
+                del self.subscriber_per_user[user_id]
+                del self.fetcher_per_user[user_id]
                 del self.queues_per_user[user_id]
                 
                 return unsubscribe_ok_response(request)
