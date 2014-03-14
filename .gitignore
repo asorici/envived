@@ -11,3 +11,4 @@ c2dm_requests.log
 settings.py
 envived.sql
 order_item_rank_refresh_cron.py
+templates/change_charset_envived_db.php
