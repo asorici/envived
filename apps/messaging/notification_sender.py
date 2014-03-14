@@ -12,7 +12,7 @@ from django.conf import settings
 
 
 ENVIVED_PROXY_HOST = "localhost:8080"
-ENVIVED_MAIN_HOST = "127.0.0.1:8001"
+ENVIVED_MESSAGING_HOST = "127.0.0.1:8002"
 FORWARDED_FOR_SERVER_ADRESS = "127.0.0.1"
 
 class NotificationHandler(View):
@@ -89,17 +89,13 @@ class NotificationHandler(View):
     
     
     def cancel_notifications(self, request):
-        if request.META['HTTP_HOST'] != ENVIVED_MAIN_HOST:
-            return access_forbidden_response(request, "External unsubscribe request not allowed.")
         
         if request.method.upper() == "POST" and not request.user.is_anonymous(): 
             user_id = request.user.id
             if self.queues_per_user.has_key(user_id):
-                ## stop listenting and kill greenlet
                 self.subscriber_per_user[user_id].close()
                 self.fetcher_per_user[user_id].kill(block=False)
-                
-                ## remove them from the map
+             
                 del self.subscriber_per_user[user_id]
                 del self.fetcher_per_user[user_id]
                 del self.queues_per_user[user_id]
