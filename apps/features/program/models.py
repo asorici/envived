@@ -1,8 +1,11 @@
 from coresql.models import Feature, Annotation, Area
 from coresql.exceptions import AnnotationException
 from coresql.db import fields
+from coresql.utils.decorators import track_data
 from django.db import models
+from django.db.models.signals import post_save
 import datetime
+from . import send_facts
 
 ########################################## ProgramFeature Class ###############################################
 class ProgramFeature(Feature):
@@ -165,7 +168,21 @@ class ProgramFeature(Feature):
     def get_resource_class(cls):
         from api import ProgramResource
         return ProgramResource
-        
+
+def send_program_update_message(sender, instance, created, **kwargs):
+    from features import send_feature_update_message
+    
+    environment = instance.environment
+    if instance.area is not None:
+        environment = instance.area.environment
+    
+    send_feature_update_message(environment=environment, area=None, feature=instance, receivers='all')
+
+'''Send an update notification to all users of the environment to which the program feature is assigned 
+when an instance of the it changes'''
+post_save.connect(send_program_update_message, sender = ProgramFeature)
+post_save.connect(send_facts, sender = ProgramFeature)
+
 
 ######################################### ProgramAnnotation Class #############################################
 class ProgramAnnotation(Annotation):
@@ -219,6 +236,7 @@ class ProgramAnnotation(Annotation):
 
   
 ###################################### ProgramFeature Model Classes ###########################################
+@track_data('title','tag','location')
 class Session(models.Model):
     title = models.CharField(max_length = 256)
     tag = models.CharField(max_length = 8)
@@ -234,7 +252,7 @@ class Session(models.Model):
     def __unicode__(self):
         return self.title + " @ " + str(self.program)
     
-
+@track_data()
 class Presentation(models.Model):
     session = models.ForeignKey(Session, related_name = "presentations")
     speakers = models.ManyToManyField("Speaker", related_name = "presentations")
@@ -255,7 +273,7 @@ class Presentation(models.Model):
     def __unicode__(self):
         return self.title + " >> " + self.session.title
 
-        
+@track_data()
 class Speaker(models.Model):
     first_name = models.CharField(max_length = 64)
     last_name = models.CharField(max_length = 64)

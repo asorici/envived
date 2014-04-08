@@ -116,9 +116,19 @@ for app_dir in FEATURES_ROOT.dirs():
         app_dir_path = app_dir.relpath(start = APPS_ROOT)
         app_module_path = ".".join(app_dir_path.splitall()[1:]) # ignore the first element in the splitall() because it is empty, as per documentation
         INSTALLED_APPS += (app_module_path,)
+        
+# Registering the Agent Application last, so as to send signals to the feature-specific models, that
+# they may now send their particular fact serialization to the server side agent
+INSTALLED_APPS += (APPS_ROOT / 'agent',)
 
 # Django-Registration configuration variable denoting number of days to wait for account activation
 ACCOUNT_ACTIVATION_DAYS = 7
+
+
+# Access information for the Redis server used as a message queue service for the Agent Message Queues
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+REDIS_DB = 0
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
