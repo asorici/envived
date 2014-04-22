@@ -119,7 +119,7 @@ for app_dir in FEATURES_ROOT.dirs():
         
 # Registering the Agent Application last, so as to send signals to the feature-specific models, that
 # they may now send their particular fact serialization to the server side agent
-INSTALLED_APPS += (APPS_ROOT / 'agent',)
+#INSTALLED_APPS += (APPS_ROOT / 'agent',)
 
 # Django-Registration configuration variable denoting number of days to wait for account activation
 ACCOUNT_ACTIVATION_DAYS = 7

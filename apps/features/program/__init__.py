@@ -8,5 +8,3 @@ def send_initial_facts():
 
 def send_facts(sender, instance, created, **kwargs):
     pass
-
-send_facts()

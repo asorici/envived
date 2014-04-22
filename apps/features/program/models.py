@@ -179,7 +179,7 @@ def send_program_update_message(sender, instance, created, **kwargs):
     send_feature_update_message(environment=environment, area=None, feature=instance, receivers='all')
 
 '''Send an update notification to all users of the environment to which the program feature is assigned 
-when an instance of the it changes'''
+when an instance of it changes'''
 post_save.connect(send_program_update_message, sender = ProgramFeature)
 post_save.connect(send_facts, sender = ProgramFeature)
 
