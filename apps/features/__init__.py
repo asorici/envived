@@ -64,7 +64,9 @@ def send_feature_update_message(environment=None, area=None, feature=None, recei
                           'content': {'feature' : feature_categ.encode("utf8"),
                                       'location_uri' : location_uri,
                                       'resource_uri' : feature_resource_uri,
-                                      'params': {'type': update_type} 
+                                      'params': [{'name': 'type',
+                                                  'value': update_type}
+                                                 ] 
                                       }
                         } 
         
