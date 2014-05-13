@@ -1,7 +1,7 @@
-import redis
 from client.decorators import allow_anonymous_profile, secure_required
 from coresql.forms import CheckinForm, LoginForm, ClientRegistrationForm
 from coresql.models import Environment, Area, UserContext, ResearchProfile
+from signals import user_checked_in, user_checked_out
 from tastypie.exceptions import ImmediateHttpResponse
 
 
@@ -200,6 +200,9 @@ def checkin(request):
                                       currentEnvironment=area_env, virtual = virtual)
                 context.save()
         
+        #''' send checkin signal '''
+        #user_checked_in.send(sender=None, user_profile = user_profile, environment = area_env, area = area, virtual = virtual)
+        
         return checkin_succeeded(request, user_profile, area = area, env = area_env, virtual = virtual)
     
     else:
@@ -212,9 +215,16 @@ def checkout(request):
     Here we just check them out.
     """
     ## checkout is done by default from the current area or current env in the user_profile context
+    user_profile = None
+    current_environment = None
+    current_area = None
+    
     try:
         if not request.user.is_anonymous():
             user_profile = request.user.get_profile()
+            
+            current_environment = user_profile.context.currentEnvironment
+            current_area = user_profile.context.currentArea
             
             ## clear user context
             user_profile.context.currentEnvironment = None
@@ -224,6 +234,9 @@ def checkout(request):
     except UserContext.DoesNotExist:
         ## graceful error handling, if no context exists don't freak out, just ignore
         pass
+    
+    #''' send checkout signal '''
+    #user_checked_out.send(sender=None, user_profile = user_profile, environment = current_environment, area = current_area)
     
     return checkout_succeeded(request)
 

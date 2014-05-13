@@ -10,8 +10,8 @@ class SocialMediaFeature(Feature):
     google_plus_url = models.URLField(null = True, blank = True, max_length = 256)
     internal_forum_url = models.URLField(null = True, blank = True, max_length = 256)
     
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(SocialMediaFeature, self).to_serializable(virtual=virtual, include_data=include_data)
+    def to_serializable(self, request = None, virtual = False, include_data = False):
+        serialized_feature = super(SocialMediaFeature, self).to_serializable(request = request, virtual=virtual, include_data=include_data)
         
         if include_data:
             data_dict = {}
@@ -33,8 +33,8 @@ class SocialMediaFeature(Feature):
         return serialized_feature
     
     
-    def get_feature_data(self, virtual, filters):
-        return self.to_serializable(virtual = virtual, include_data = True)['data']
+    def get_feature_data(self, request, virtual, filters):
+        return self.to_serializable(request = request, virtual = virtual, include_data = True)['data']
     
     @classmethod
     def get_resource_class(cls):

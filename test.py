@@ -1,4 +1,5 @@
 import sys, os
+import requests, simplejson
 
 ## must setup environment before core.* related imports
 sys.path.extend(['./', './apps'])
@@ -8,7 +9,6 @@ from coresql.db.objects import DateTimeList, AreaShape
 from coresql.utils.geo import Point2D
 from coresql.models import *
 from django.contrib.auth.models import User
-from django.utils import simplejson
  
 def test_Q():
     from django.db.models import Q
@@ -393,16 +393,60 @@ def build_wims_simulation(argv=None):
     people_feature.save()
     
     print ">> Done adding area 4"
+
+
+def test_conference_role_update(argv=None):
+    # first login and checkin as alex user
+    login_url = "http://localhost:8080/envived/client/v2/actions/login/"
+    login_payload = {"email": "user_1@email.com", "password": "pass_1", "clientrequest": "true", "format": "json"}
+        
+    checkin_url = "http://localhost:8080/envived/client/v2/actions/checkin/"
+    checkin_payload = {"environment": "12", "clientrequest": "true", "virtual": "false", "format": "json"}
+
+    # execute login - get and store session cookie
+    r = requests.get(login_url, params = login_payload)
+    print r.status_code
+    print r.json()
+    sessionid = r.cookies["sessionid"]
+
+    # execute checkin - put the cookies in the header
+    cookies = dict(sessionid=sessionid)
+    r = requests.get(checkin_url, params = checkin_payload, cookies = cookies)
+    print r.status_code
+    #print simplejson.dumps(simplejson.loads(r.text), sort_keys = False, indent = 4)
     
+    # execute the get of the conference_role resource to see it works
+    confrole_url = "http://localhost:8080/envived/client/v2/resources/features/conference_role/60/"
+    confrole_payload = {"virtual": "false", "format": "json"}
+    r = requests.get(confrole_url, params = confrole_payload, cookies = cookies)
+    print r.status_code
+    print simplejson.dumps(r.json(), sort_keys = False, indent = 4)
+    
+    
+    # now execute a put with a role to session_chair
+    confrole_url = "http://localhost:8080/envived/client/v2/resources/features/conference_role/60/?virtual=false&format=json"
+    confrole_headers = {'content-type': 'application/json'}
+    confrole_data = {'role':'session_chair', 'chair_password': 'pass_1'}
+    r = requests.put(confrole_url, data = simplejson.dumps(confrole_data), cookies = cookies, headers = confrole_headers)
+    print r.status_code
+    print r.text
+    
+    # execute the get of the conference_role resource to see if it updated works
+    confrole_url = "http://localhost:8080/envived/client/v2/resources/features/conference_role/60/"
+    confrole_payload = {"virtual": "false", "format": "json"}
+    r = requests.get(confrole_url, params = confrole_payload, cookies = cookies)
+    print r.status_code
+    print simplejson.dumps(r.json(), sort_keys = False, indent = 4)
+
 
 if __name__ == "__main__":
     #main()
     #test_Q()
     #dummy_sql_insert()
-    generate_qrcodes(virtual = False)
-    generate_qrcodes(virtual = True)
+    #generate_qrcodes(virtual = False)
+    #generate_qrcodes(virtual = True)
     #urllib_header_test()
     #parse_program()
     #build_wims_simulation()
-    
+    test_conference_role_update()
     

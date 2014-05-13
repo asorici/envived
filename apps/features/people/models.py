@@ -10,8 +10,8 @@ class PeopleFeature(Feature):
     
     description = models.TextField(null = True, blank = True)
     
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(PeopleFeature, self).to_serializable(virtual=virtual, include_data=include_data)
+    def to_serializable(self, request = None, virtual = False, include_data = False):
+        serialized_feature = super(PeopleFeature, self).to_serializable(request = request, virtual=virtual, include_data=include_data)
         if include_data:
             serialized_feature.update( {'data' : self.description} )
         

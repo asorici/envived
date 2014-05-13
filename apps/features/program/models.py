@@ -15,10 +15,10 @@ class ProgramFeature(Feature):
     
     description = models.TextField(null = True, blank = True)
     
-    def to_serializable(self, virtual = False, include_data = False):
+    def to_serializable(self, request = None, virtual = False, include_data = False):
         from client.api import AreaResource
         
-        serialized_feature = super(ProgramFeature, self).to_serializable(virtual=virtual, include_data=include_data)
+        serialized_feature = super(ProgramFeature, self).to_serializable(request = request, virtual=virtual, include_data=include_data)
         
         if include_data:
             program_dict = {'data' : {'description' : self.description} }
@@ -106,7 +106,7 @@ class ProgramFeature(Feature):
         return serialized_feature
     
     
-    def get_feature_data(self, virtual, filters):
+    def get_feature_data(self, bundle, virtual, filters):
         if 'querytype' in filters:
             if filters['querytype'] in self.QUERY_TYPES:
                 if filters['querytype'] == 'presentation':
@@ -162,7 +162,7 @@ class ProgramFeature(Feature):
         else:
             ## return the entire to_serializable data on program features; 
             ## this can be the case when we query for the list of all features on the FeatureResource
-            return self.to_serializable(virtual = virtual, include_data = True)['data']
+            return self.to_serializable(request = bundle.request, virtual = virtual, include_data = True)['data']
         
     @classmethod
     def get_resource_class(cls):

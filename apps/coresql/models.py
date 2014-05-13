@@ -332,7 +332,7 @@ class Feature(models.Model):
         unique_together = (("environment", "category"), ("area", "category"))
     
     
-    def to_serializable(self, virtual = False, include_data = False):
+    def to_serializable(self, request = None, virtual = False, include_data = False):
         serialized_feature = {'category' : self.category, 
                               'version' : self.version, 
                               'timestamp': self.timestamp,
@@ -352,8 +352,8 @@ class Feature(models.Model):
             return "feature type(" + self.category + ") but no location assigned -- needs fix"
     
     
-    def get_feature_data(self, virtual, filters):
-        return self.to_serializable(virtual = virtual, include_data = True)['data']
+    def get_feature_data(self, bundle, virtual, filters):
+        return self.to_serializable(request = bundle.request, virtual = virtual, include_data = True)['data']
     
     
     @classmethod

@@ -13,8 +13,8 @@ class BoothDescriptionFeature(Feature):
     contact_email = models.EmailField(null = True, blank = True, max_length = 128)
     contact_website = models.URLField(null = True, blank = True, max_length = 256)
     
-    def to_serializable(self, virtual = False, include_data = False):
-        serialized_feature = super(BoothDescriptionFeature, self).to_serializable(virtual=virtual, include_data=include_data)
+    def to_serializable(self, request = None, virtual = False, include_data = False):
+        serialized_feature = super(BoothDescriptionFeature, self).to_serializable(request = request, virtual=virtual, include_data=include_data)
         
         if include_data:
             data_dict = { 'id' : self.id }
@@ -68,8 +68,6 @@ class BoothDescriptionFeature(Feature):
         
         return serialized_feature
     
-    def get_feature_data(self, virtual, filters):
-        return self.to_serializable(virtual = virtual, include_data = True)['data']
     
     @classmethod
     def get_resource_class(cls):

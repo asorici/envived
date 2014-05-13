@@ -308,7 +308,7 @@ class AreaResource(ModelResource):
         for feature in bundle.obj.features.select_subclasses():
             feature_resource_class = feature.__class__.get_resource_class()
             if feature_resource_class:
-                feat_dict = feature.to_serializable(virtual = virtual)
+                feat_dict = feature.to_serializable(request = bundle.request, virtual = virtual)
                 if feat_dict:
                     ## attach resource_uri and area_uri
                     # feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
@@ -323,7 +323,7 @@ class AreaResource(ModelResource):
         for env_feat in environment_features:
             env_feat_resource_class = env_feat.__class__.get_resource_class()
             if env_feat_resource_class:
-                feat_dict = env_feat.to_serializable(virtual = virtual)
+                feat_dict = env_feat.to_serializable(request = bundle.request, virtual = virtual)
                 if feat_dict:
                     ## attach resource_uri and area_uri
                     #feat_dict['resource_uri'] = FeatureResource().get_resource_uri(env_feat)
@@ -444,7 +444,7 @@ class FeatureResource(ModelResource):
         virtual = get_virtual_flag_from_url(bundle.request)
         
         filters = bundle.request.GET.copy()
-        return bundle.obj.get_feature_data(virtual, filters)
+        return bundle.obj.get_feature_data(bundle, virtual, filters)
     
     
     def dehydrate(self, bundle):
@@ -455,6 +455,7 @@ class FeatureResource(ModelResource):
             del bundle.data['area']
     
         return bundle
+    
 
 
 class AnnouncementResource(ModelResource):
