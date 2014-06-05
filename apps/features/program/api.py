@@ -9,7 +9,33 @@ class ProgramResource(FeatureResource):
     class Meta(FeatureResource.Meta):
         queryset = ProgramFeature.objects.all()
         resource_name = ProgramFeature.CATEGORY
-    
+        
+        detail_allowed_methods = ["get", "put"]
+        list_allowed_methods = []
+        
+        
+    def obj_update(self, bundle, skip_errors=False, **kwargs):
+        from tastypie.serializers import Serializer
+        from models import ProgramFeature
+        
+        try:
+            serdes = Serializer()
+            deserialized = None
+            
+            try:
+                deserialized = serdes.deserialize(bundle.request.body, format=bundle.request.META.get('CONTENT_TYPE', 'application/json'))
+            except Exception:
+                deserialized = None
+            
+            if deserialized is None:
+                return ImmediateHttpResponse(response = http.HttpBadRequest('Empty update data'))
+            
+            updated_bundle = super(ProgramResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
+            
+            return "a"
+        
+        except (NotFound, MultipleObjectsReturned), ex:
+            raise ImmediateHttpResponse(response = http.HttpBadRequest())
 
 
 class ProgramAnnotationResource(AnnotationResource):
@@ -62,5 +88,3 @@ class ProgramAnnotationResource(AnnotationResource):
             raise ImmediateHttpResponse(response=http.HttpBadRequest(content=ex.get_message()))
         
         return bundle
-        
-    

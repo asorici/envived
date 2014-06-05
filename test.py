@@ -430,7 +430,8 @@ def test_conference_role_update(argv=None):
     r = requests.put(confrole_url, data = simplejson.dumps(confrole_data), cookies = cookies, headers = confrole_headers)
     print r.status_code
     print r.text
-    
+
+
     # execute the get of the conference_role resource to see if it updated works
     confrole_url = "http://localhost:8080/envived/client/v2/resources/features/conference_role/60/"
     confrole_payload = {"virtual": "false", "format": "json"}
