@@ -2,7 +2,9 @@ from tastypie import http
 from tastypie.exceptions import ImmediateHttpResponse
 from client.api import FeatureResource, AnnotationResource, EnvironmentResource, AreaResource
 from coresql.exceptions import AnnotationException, DuplicateAnnotationException
-from models import ProgramFeature, ProgramAnnotation
+from models import ProgramFeature, ProgramAnnotation, Presentation
+from django.db.models import F
+from datetime import datetime
 
 class ProgramResource(FeatureResource):
     
@@ -18,24 +20,34 @@ class ProgramResource(FeatureResource):
         from tastypie.serializers import Serializer
         from models import ProgramFeature
         
-        try:
-            serdes = Serializer()
-            deserialized = None
-            
-            try:
-                deserialized = serdes.deserialize(bundle.request.body, format=bundle.request.META.get('CONTENT_TYPE', 'application/json'))
-            except Exception:
-                deserialized = None
-            
-            if deserialized is None:
-                return ImmediateHttpResponse(response = http.HttpBadRequest('Empty update data'))
-            
-            updated_bundle = super(ProgramResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
-            
-            return "a"
+        serdes = Serializer()
+        deserialized = None
         
-        except (NotFound, MultipleObjectsReturned), ex:
-            raise ImmediateHttpResponse(response = http.HttpBadRequest())
+        try:
+            deserialized = serdes.deserialize(bundle.request.body, format=bundle.request.META.get('CONTENT_TYPE', 'application/json'))
+        except Exception:
+            deserialized = None
+        
+        if deserialized is None:
+            return ImmediateHttpResponse(response = http.HttpBadRequest('Empty update data'))
+        
+        updated_bundle = super(ProgramResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
+        
+        time_difference = datetime.strptime(deserialized['new_end_time'], "%Y-%m-%d %H:%M:%S") - datetime.strptime(deserialized['old_end_time'], "%Y-%m-%d %H:%M:%S")
+        
+        Presentation.objects.filter(startTime__gte=deserialized['old_end_time']).update(startTime=F('startTime') + time_difference)
+        Presentation.objects.filter(startTime__gte=deserialized['old_end_time']).update(endTime=F('endTime') + time_difference)
+        
+        later_presentations = Presentation.objects.all()#filter(startTime__gte=deserialized['old_end_time'])
+        
+        updated_bundle = super(ProgramResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
+        
+        changed_presentation = Presentation.objects.get(startTime=deserialized['old_start_time'])
+        changed_presentation.startTime = deserialized['new_start_time']
+        changed_presentation.endTime = deserialized['new_end_time']
+        changed_presentation.save()
+        
+        return updated_bundle
 
 
 class ProgramAnnotationResource(AnnotationResource):
