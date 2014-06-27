@@ -31,24 +31,18 @@ class ProgramResource(FeatureResource):
         if deserialized is None:
             return ImmediateHttpResponse(response = http.HttpBadRequest('Empty update data'))
         
-        updated_bundle = super(ProgramResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
-        
         time_difference = datetime.strptime(deserialized['new_end_time'], "%Y-%m-%d %H:%M:%S") - datetime.strptime(deserialized['old_end_time'], "%Y-%m-%d %H:%M:%S")
         
         Presentation.objects.filter(startTime__gte=deserialized['old_end_time']).update(startTime=F('startTime') + time_difference)
         Presentation.objects.filter(startTime__gte=deserialized['old_end_time']).update(endTime=F('endTime') + time_difference)
         
-        later_presentations = Presentation.objects.all()#filter(startTime__gte=deserialized['old_end_time'])
-        
-        updated_bundle = super(ProgramResource, self).obj_update(bundle, skip_errors=skip_errors, **kwargs)
+        later_presentations = Presentation.objects.filter(startTime__gte=deserialized['old_end_time'])
         
         changed_presentation = Presentation.objects.get(startTime=deserialized['old_start_time'])
         changed_presentation.startTime = deserialized['new_start_time']
         changed_presentation.endTime = deserialized['new_end_time']
         changed_presentation.save()
         
-        return updated_bundle
-
 
 class ProgramAnnotationResource(AnnotationResource):
     
