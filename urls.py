@@ -47,6 +47,8 @@ urlpatterns = patterns('',
     url(r'^envived/media/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.MEDIA_ROOT}),
     
     #(r'^envived/resources/client/', include(v1_api.urls)),
+    # specifing the root for the urls regarding the clients
+    #  the rest of the url are specified in the file urls from app client 
     (r'^envived/client/', include('client.urls')),
     (r'^envived/test/$', TemplateView.as_view(template_name='test_requests.html')),
     

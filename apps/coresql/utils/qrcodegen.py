@@ -2,7 +2,7 @@ from django.conf import settings
 
 class QRCodeManager(object):
     #HOST = "192.168.100.101:8080"
-    HOST = "192.168.0.105:8080"
+    HOST = "192.168.8.110:8080"
     #HOST = "172.16.2.145:8080"
     #HOST = "envived.com:8800/envived"
     

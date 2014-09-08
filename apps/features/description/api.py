@@ -10,6 +10,9 @@ class DescriptionResource(FeatureResource):
     class Meta(FeatureResource.Meta):
         queryset = DescriptionFeature.objects.all()
         resource_name = DescriptionFeature.CATEGORY
+        
+        
+        
     
 
 

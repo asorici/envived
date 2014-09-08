@@ -1,17 +1,20 @@
+# UserAuthorization is a subclass of the Authorization class, who over overrides is_authorized method
 from client.authorization import AnnotationAuthorization, UserAuthorization, \
-    FeatureAuthorization
-from client.validation import AnnotationValidation
+    FeatureAuthorization, AreaAuthorization, EnvironmentAuthorization
+from client.validation import AnnotationValidation,EnvironmentValidation
 from coresql.models import Environment, Area, Announcement, History, UserProfile, \
-    ResearchProfile, UserContext, UserSubProfile
+    ResearchProfile, UserContext, UserSubProfile,Feature
 from coresql.utils import str2bool
 from datetime import datetime
 from django.conf.urls import patterns
 from django.core.exceptions import MultipleObjectsReturned
 from tastypie import fields, http
 from tastypie.api import Api
+#component needed to verify who a certain user is and to validate their access to the API.
 from tastypie.authentication import Authentication
+from tastypie.authorization import Authorization
 from tastypie.exceptions import ImmediateHttpResponse, NotFound
-from tastypie.resources import ModelResource
+from tastypie.resources import ModelResource, ALL
 
 
 class UserResource(ModelResource):
@@ -21,14 +24,17 @@ class UserResource(ModelResource):
     class Meta:
         queryset = UserProfile.objects.all()
         resource_name = 'user'
+        
+        #responsible for the manipulations on an item. For example, one specific entry of your blog.
         detail_allowed_methods = ["get", "put"]
+        # responsible for the manipulations on the set returned by tastypie, for example, all the entries of your blog. 
         list_allowed_methods = ["get"]
         #fields = ['first_name']
         excludes = ["id", "timestamp", "is_anonymous"]
         authentication = Authentication()
         authorization = UserAuthorization()
         
-    
+    #building an advanced filter ( used generally to combine Or clauses or And clauses
     def build_filters(self, filters = None):
         """
         enable filtering by environment and area (which do not have their own fields in this resource)
@@ -129,8 +135,8 @@ class UserResource(ModelResource):
         else:
             raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
     
+    ## apply a default sorting of user by their last_name
     def apply_sorting(self, obj_list, options=None):
-        ## apply a default sorting of user by their last_name
         return obj_list.order_by("user__last_name")
     
     
@@ -176,10 +182,16 @@ class EnvironmentResource(ModelResource):
         #api_name = 'v1/resources'
         #fields = ['name', 'data', 'tags', 'parentID', 'category', 'latitude', 'longitude', 'timestamp']
         excludes = ['width', 'height']
-        detail_allowed_methods = ['get']
-        list_allowed_methods = ['get']
+        detail_allowed_methods = ['get', 'post', 'put', 'delete']
+        list_allowed_methods = ['get', 'post', 'delete'] # for deleting morethan one environment, used for deleting the children
+        filtering = {
+            'owner': ['exact'],
+        }
         authentication = Authentication()
+        authorization =  EnvironmentAuthorization()
         default_format = "application/json"
+        validation = EnvironmentValidation()
+        always_return_data = True
         
     def dehydrate_tags(self, bundle):
         return bundle.obj.tags.to_serializable()
@@ -241,19 +253,20 @@ class EnvironmentResource(ModelResource):
 
 class AreaResource(ModelResource):
     parent = fields.ForeignKey(EnvironmentResource, 'environment')
-    features = fields.ListField()
+    features = fields.ListField(null = True) #am adaugat eu null = true ca sa nu fie necesar  daca incerc sa adaug cu curl
     owner = fields.DictField()
     admin = fields.ForeignKey(UserResource, 'admin', null = True, full = True)
     
     class Meta:
         queryset = Area.objects.all()
         resource_name = 'area'
-        allowed_methods = ['get']
         excludes = ['shape', 'layout']
         filtering = {
             'parent': ['exact'],
         }
+
         authentication = Authentication()
+        authorization = AreaAuthorization() # adaugat de mine, is_authorized intoarce true mereu
         
     
     def get_list(self, request, **kwargs):
@@ -265,10 +278,11 @@ class AreaResource(ModelResource):
             raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
     
     
-    def build_filters(self, filters = None):
+    #def build_filters(self, filters = None):
         """
         enable filtering by level (which does not have its own field)
         """
+        '''
         if filters is None:
             filters = {}
         
@@ -278,7 +292,7 @@ class AreaResource(ModelResource):
             orm_filters["layout__level"] = int(filters["level"])
         
         return orm_filters
-    
+        '''
     
     def dehydrate_tags(self, bundle):
         return bundle.obj.tags.to_serializable()
@@ -367,9 +381,10 @@ class FeatureResource(ModelResource):
     data = fields.DictField()
     
     class Meta:
-        # queryset = Feature.objects.select_subclasses()
+        queryset = Feature.objects.all()
+        #queryset = Feature.objects.select_subclasses()
         # resource_name = 'feature'
-        allowed_methods = ['get']
+        allowed_methods = ['get','post']
         excludes = ['id', 'is_general']
         filtering = {
             'area' : ['exact'],
@@ -377,7 +392,8 @@ class FeatureResource(ModelResource):
             'category' : ['exact']
         }
         authentication = Authentication()
-        authorization = FeatureAuthorization()
+        authorization = Authorization()
+        #authorization = FeatureAuthorization()
     
     
     def base_urls(self):
@@ -401,10 +417,10 @@ class FeatureResource(ModelResource):
         and a ``category`` filter exist otherwise reject the call with a HttpMethodNotAllowed
         """
         # if ('area' in request.GET or 'environment' in request.GET) and 'category' in request.GET:
-        if 'area' in request.GET or 'environment' in request.GET:
-            return super(FeatureResource, self).get_list(request, **kwargs)
-        else:
-            raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
+        #if 'area' in request.GET or 'environment' in request.GET:
+        return super(FeatureResource, self).get_list(request, **kwargs)
+        #else:
+        #    raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
     
     
     def get_object_list(self, request):
@@ -894,7 +910,7 @@ class ClientApi(Api):
         
         from django.conf.urls.defaults import url, include
         from tastypie.utils.urls import trailing_slash
-        from client.views import checkin, checkout, login, logout, register, create_anonymous, delete_anonymous
+        from client.views import checkin, checkout, login, logout, register, create_anonymous, delete_anonymous, create_environment
         
         pattern_list = [
             url(r"^(?P<api_name>%s)%s$" % (self.api_name, trailing_slash()), self.wrap_view('top_level'), name="api_%s_top_level" % self.api_name),
@@ -912,7 +928,8 @@ class ClientApi(Api):
             url(r"^%s/actions/login/$" % self.api_name, login, name="login"),
             url(r"^%s/actions/logout/$" % self.api_name, logout, name="logout"),
             url(r"^%s/actions/checkin/$" % self.api_name, checkin, name="checkin"),
-            url(r"^%s/actions/checkout/$" % self.api_name, checkout, name="checkout")
+            url(r"^%s/actions/checkout/$" % self.api_name, checkout, name="checkout"),
+            url(r"^%s/actions/create-environment/$" % self.api_name, create_environment, name="createenv")
         ])
 
         urlpatterns = self.prepend_urls()
@@ -929,14 +946,16 @@ class ClientApi(Api):
 def get_virtual_flag_from_url(request):
     
     ## retrieve the value of the virtual flag
-    virtual = str(request.GET.get('virtual'))    
+    virtual = str(request.GET.get('virtual'))
+        
     if virtual is None:
         raise ImmediateHttpResponse(response = http.HttpBadRequest(content='No "virtual" flag in request url'))
     
+    # raise ImmediateHttpResponse(response = http.HttpBadRequest(str(request) ))
     try:
         virtual = str2bool(virtual)
     except ValueError:
-        raise ImmediateHttpResponse(response = http.HttpBadRequest(content='"virtual" flag could not be parsed to a boolean'))
+        raise ImmediateHttpResponse(response = http.HttpBadRequest(content='"virtual" flag could not be parsed to a boolean' ))
     
     return virtual
 

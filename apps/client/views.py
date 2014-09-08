@@ -1,9 +1,28 @@
 from client.decorators import allow_anonymous_profile, secure_required
-from coresql.forms import CheckinForm, LoginForm, ClientRegistrationForm
+from coresql.forms import CheckinForm, LoginForm, ClientRegistrationForm, RegistrationForm,EnvironmentForm
 from coresql.models import Environment, Area, UserContext, ResearchProfile
 from signals import user_checked_in, user_checked_out
 from tastypie.exceptions import ImmediateHttpResponse
+from httplib import HTTPResponse
 
+
+
+
+def create_environment(request):
+    
+    
+    if request.method == 'POST':
+        form = EnvironmentForm( data= request.REQUEST)
+        if form.is_valid():
+            form.save()
+            return create_environment_succeded(request)
+        else:
+            return create_environment_failed(request, data = form.errors)
+        
+    response = {"success": False, "code": 400, "data" : {"nu s-a chemat cu POST"}}
+    return view_response(request, response, 400)
+    
+    
 
 def create_anonymous(request):
     from client.decorators import create_anonymous_user_profile
@@ -34,6 +53,8 @@ def delete_anonymous(request):
 
 #@secure_required
 def register(request):
+   
+
     #from django_facebook.connect import connect_user
     from django.contrib.auth import login
     from django.utils import simplejson
@@ -74,6 +95,7 @@ def register(request):
         return register_failed(request, data = form.errors)
     
     return register_failed(request)
+    
 
 
 #@secure_required
@@ -88,9 +110,10 @@ def login(request):
     
     if form.is_valid():
         user = form.get_user()
+        
         if not user is None:
             ''' 
-            Before login check if the request does not come from an Envived anonymous user.
+            Before login, check if the request does not come from an Envived anonymous user.
             If so, then we can copy over that user's data and then delete him. 
             '''
             if not req_user.is_anonymous():
@@ -284,6 +307,22 @@ def register_failed(request, data = None):
     return view_response(request, response, 400)
 
 
+def create_environment_succeded(request):
+    response = {"success": True, "code": 200, "data" : {}}
+    return view_response(request, response, 200)
+
+
+
+def create_environment_failed(request,data=None):
+     response = {"success": False, "code": 400, "data" : {"gigi" : request,"msg" : "Create environment failed"}}
+     #response = {"success": False, "code": 400, "data" : {"msg" : "Create environment failed"}}
+     if not data is None:
+        response['data'].update(data)
+        
+     return view_response(request, response, 400)
+
+
+
 def login_succeeded(request, user):
     from client.api import UserResource
     
@@ -411,4 +450,6 @@ def view_response(request, response, code):
     http_response = HttpResponse(response, mimetype=mimetype)
     http_response.status_code = code
     return http_response
+
+
     

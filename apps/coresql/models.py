@@ -17,15 +17,18 @@ class UserProfile(models.Model):
     
     timestamp = models.DateTimeField()
     is_anonymous = models.BooleanField(default = False)
+    #Android Cloud to Device Messaging????? 
     c2dm_id = models.CharField(max_length=256, null = True, blank = True)
     
     def __unicode__(self):
         return self.user.username + ": anonymous=" + str(self.is_anonymous)
     
+    
+    # overrides the method save in order to set value for the timestamp field 
     def save(self, *args, **kwargs):
         ''' On save, update timestamp '''
         self.timestamp = datetime.datetime.now()
-        super(UserProfile, self).save(*args, **kwargs)
+        super(UserProfile, self).save(*args, **kwargs) # calls the original method for saving data in the database
         
     
     def copy_from_profile(self, user_profile):
@@ -144,7 +147,7 @@ class Area(models.Model):
     name = models.CharField(max_length=140)
     
     tags = fields.TagListField(null = True, blank = True)
-    layout = models.ForeignKey(Layout, related_name = "areas", blank = True)
+    layout = models.ForeignKey(Layout, related_name = "areas", blank = True, default=1) #default added by CRISTI! it's his fault
     img_thumbnail_url = models.URLField(null = True, blank = True, max_length = 256)
     
     shape = fields.AreaShapeField(blank = True, null = True)

@@ -15,7 +15,10 @@ v1_api.register(UserResource())
 v1_api.register(EnvrionmentContextResource())
 """
 
+
+# creating a new API instance
 v2_api = ClientApi(api_name='v2')
+# associating to the instance a set of resources
 v2_api.register(EnvironmentResource())
 v2_api.register(AreaResource())
 v2_api.register(UserResource())
@@ -34,6 +37,7 @@ for feat_res_cls in FeatureResource.__subclasses__():
 for ann_res_cls in AnnotationResource.__subclasses__():
     v2_api.register(ann_res_cls())
     
+# the URL by now will be localhost:8000/client/v2    
 urlpatterns = patterns('',
     (r'', include(v2_api.urls)),
 )

@@ -139,10 +139,16 @@ class AnnotationAuthorization(Authorization):
     
     
 class UserAuthorization(Authorization):
+    
+    
+    # checks whether the user is authorized to update data in DB or to retrieve data
     def is_authorized(self, request, object=None):
         from client.api import UserResource
         
+        # to check if the user is authorized to update information
+        # we retrieve the profile based on the request's URI and we compare with the profile from the filed of the request
         if request.method.upper() == "PUT":
+
             if hasattr(request, 'user') and not request.user.is_anonymous():
                 user_res_uri = request.path
                 user_obj = None
@@ -153,10 +159,11 @@ class UserAuthorization(Authorization):
                     #print "[User authorization] exception in getting user resource for update: ", ex
                     user_obj = None
                     
-                ## now test for equality between request.user and user_obj
+                # now test for equality between request.user and user_obj
                 if request.user.get_profile() == user_obj:
                     return True
                 
+        #  the user is always authorized to retrieve data ( to read)       
         elif request.method.upper() == "GET":
             return True
         
@@ -220,3 +227,184 @@ class FeatureAuthorization(Authorization):
                 return is_checked_in(user_profile, env_obj, area_obj)
             
         return False
+    
+  
+class  EnvironmentAuthorization(Authorization):
+    
+             
+    def read_list(self, object_list, bundle):
+        # This assumes a ``QuerySet`` from ``ModelResource``.
+        # return object_list.filter(user=bundle.request.user)
+        # not implemented
+       # return object_list.filter(environment = bundle.request.environment)
+       
+        #       owner = User.objects.get(email__iexact=email)
+        # obtain the information about the environment with the same url as the one retrieved
+        #environment_obj = EnvironmentResource().get_via_uri(parent, request=bundle.request)
+        
+        
+        #if environment_obj.owner_id == owner.id:
+        #    return False
+        
+        #owner_current = User.objects.get(name__iexact=bundle.request.user)
+        return object_list.filter(owner = bundle.request.user.get_profile())
+       
+       
+        #return object_list
+
+    def read_detail(self, object_list, bundle):
+        # Is the requested object owned by the user?
+        # return bundle.obj.user == bundle.request.user
+        # not implemented
+        return True
+    
+    
+   # def create_list(self, object_list, bundle):
+        # Assuming they're auto-assigned to ``user``.
+     #   object_list.filter(user=bundle.request.user)
+        
+     #   return object_list
+
+    
+    def create_detail(self, object_list, bundle):
+       # from client.api import UserResource
+       # from django.contrib.auth.models import User
+       # owner_id = bundle.data['owner']
+       # owner_obj = UserResource().get_via_uri(owner_id, request=bundle.request)
+        
+       #  email = bundle.request.META['HTTP_AUTHORIZATION']
+       #  owner_email = User.objects.get(email__iexact=email)
+        
+        print bundle.request.COOKIES
+        print bundle.request.session
+        print bundle.request.user
+
+        if bundle.request.user.is_anonymous():
+           return False
+        return True
+        '''
+        from coresql.models import Environment
+        from django.contrib.auth.models import User
+        from client.api import EnvironmentResource
+
+        
+        # get email associated with Authorization in the request's header 
+        email = bundle.request.META['HTTP_AUTHORIZATION']
+        # get the resource URL for the environment where the area is created
+        parent = bundle.data['parent']
+        
+        
+        #obtain information about the user with the email retriieved
+        owner = User.objects.get(email__iexact=email)
+        # obtain the information about the environment with the same url as the one retrieved
+        environment_obj = EnvironmentResource().get_via_uri(parent, request=bundle.request)
+        
+        
+        if environment_obj.owner_id == owner.id:
+            return False
+            '''
+        return False
+
+       
+    
+class AreaAuthorization(Authorization):
+
+ 
+    def create_list(self, object_list, bundle):
+        # Assuming they're auto-assigned to ``user``.
+        return object_list
+    
+    
+    def create_detail(self, object_list, bundle):
+      
+        print bundle.request.user
+        if bundle.request.user.is_anonymous():
+           return False
+        return True
+        
+        '''
+        from coresql.models import Environment
+        from django.contrib.auth.models import User
+        from client.api import EnvironmentResource
+
+        
+        # get email associated with Authorization in the request's header 
+        email = bundle.request.META['HTTP_AUTHORIZATION']
+        # get the resource URL for the environment where the area is created
+        parent = bundle.data['parent']
+        
+        
+        #obtain information about the user with the email retriieved
+        owner = User.objects.get(email__iexact=email)
+        # obtain the information about the environment with the same url as the one retrieved
+        environment_obj = EnvironmentResource().get_via_uri(parent, request=bundle.request)
+        
+        
+        if environment_obj.owner_id == owner.id:
+            return False
+        
+        return True
+        '''
+        
+        #import base64
+        #if  bundle.request.user.is_anonymous():
+        #    return False
+        
+        #base64.b64decode(credentials)
+        #if credentials != "rahat":
+        #    return False
+        #if parent == "/envived/client/v2/resources/environment/2/":
+        #    return True
+        
+        #return False
+        
+        #return True
+        #user_profile = bundle.request.user.get_profile()
+        #if user_profile.first_name != "idioata":
+        #    return True
+        #return False  
+
+        #environments_from_owner = Environment.objects.filter(owner_id__iexact=owner.id)
+        #for element in environments_from_owner:
+                    
+        #if owner.id == 150:
+        #    return True
+        #return False
+    
+         
+    def read_list(self, object_list, bundle):
+        # This assumes a ``QuerySet`` from ``ModelResource``.
+        # return object_list.filter(user=bundle.request.user)
+        # not implemented
+       # return object_list.filter(environment = bundle.request.environment)
+        return object_list
+
+    def read_detail(self, object_list, bundle):
+        # Is the requested object owned by the user?
+        # return bundle.obj.user == bundle.request.user
+        # not implemented
+        return True
+    
+
+    '''
+    def update_list(self, object_list, bundle):
+        allowed = []
+
+        # Since they may not all be saved, iterate over them.
+        # not implemented
+        for obj in object_list:
+            if obj.user == bundle.request.user:
+                allowed.append(obj)
+
+        return allowed
+
+    def update_detail(self, object_list, bundle):
+        return bundle.obj.user == bundle.request.user
+
+    def delete_list(self, object_list, bundle):
+        # Sorry user, no deletes for you!
+        raise Unauthorized("Sorry, no deletes.")
+
+    def delete_detail(self, object_list, bundle):
+        raise Unauthorized("Sorry, no deletes.")
+    '''

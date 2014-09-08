@@ -7,27 +7,44 @@ username_pattern = re.compile('\W+')
 attrs_dict = { 'class': 'required' }
 
 class EnvironmentForm(forms.ModelForm):
+
+
     """
     Use model form to link fields to Environment model fields but make all fields not required 
     """
     def __init__(self, set_not_required = False, *args, **kwargs):
+        
         super(EnvironmentForm, self).__init__(*args, **kwargs)
         
-        if set_not_required:
-            for key in self.fields:
-                self.fields[key].required = False
+     #   if set_not_required:
+     #       for key in self.fields:
+     #           self.fields[key].required = False
     
     class Meta:
         model = Environment
         exclude = ("timestamp",)
         
+        
+    def clean_name(self):
+        """
+        Validate that the supplied name is unique for the
+        site.
+        
+        """
+        
+        if Environment.objects.filter(name__iexact=self.cleaned_data['name']):
+            raise forms.ValidationError(_(u'This environment name is already in use. Please supply a different environment name'))
+        return self.cleaned_data['name']    
+        
     
-    def clean_data(self):
+        
+    
+   # def clean_data(self):
         """
         just for future prospects of additional data field cleaning
         for now do nothing 
         """
-        return self.cleaned_data['data']
+    #    return self.cleaned_data['data']
 
 
 

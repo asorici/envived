@@ -1,4 +1,5 @@
 from tastypie.validation import Validation
+from coresql.models import Environment
 
 class AnnotationValidation(Validation):
     def is_valid(self, bundle, request=None):
@@ -55,3 +56,17 @@ class AnnotationValidation(Validation):
                 print >> sys.stderr, data_errors
         
         return errors
+    
+class EnvironmentValidation(Validation):
+    def is_valid(self,bundle,request=None):
+           errors = {} 
+           if bundle.request.method.upper() == "POST":
+                if not 'name' in bundle.data:
+                    errors['name'] =['You must complete the name of the environment'];
+                if not 'owner' in bundle.data:
+                    errors['owner'] =  ['the value owner is missing'];
+                if Environment.objects.filter(name__iexact=bundle.data['name']):
+                    errors['name'] =['This environment name is already in use. Please supply a different environment name']
+           return errors    
+    
+    
