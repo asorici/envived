@@ -220,3 +220,62 @@ class FeatureAuthorization(Authorization):
                 return is_checked_in(user_profile, env_obj, area_obj)
             
         return False
+
+#############################################################################################################################################
+
+class ThingAuthorization(Authorization):
+    def is_authorized(self, request, object=None):
+        from client.api import ThingResource
+        from coresql.models import Environment, Area
+        from coresql.utils import str2bool
+        
+        if request.method.upper() == "GET":
+            if hasattr(request, 'user') and not request.user.is_anonymous():
+                env_obj = None
+                area_obj = None
+                
+                ''' try first to obtain info from the thing_obj itself if this is a detail request '''
+                thing_res_uri = request.path
+                try:
+                    thing_obj = ThingResource().get_via_uri(thing_res_uri, request=request)
+                    env_obj = thing_obj.environment
+                    area_obj = thing_obj.area
+                except Exception:
+                    env_obj = None
+                    area_obj = None
+                
+                #print "ThingAuthorization environment: ", env_obj
+                #print "ThingAuthorization area: ", area_obj
+                
+                if env_obj is None and area_obj is None:
+                    ''' if not, try to retrieve environment and area objects from request filters ''' 
+                    if 'environment' in request.GET:
+                        try:
+                            env_obj = Environment.objects.get(pk=request.GET['environment'])
+                        except:
+                            env_obj = None
+                                
+                    if 'area' in request.GET:
+                        try:
+                            area_obj = Area.objects.get(pk=request.GET['area'])
+                        except:
+                            area_obj = None
+                
+                
+                ''' We check if there is a virtual access flag set in the request. 
+                    If the flag is not set, the default behavior is to assume physical check-in '''
+                if 'virtual' in request.GET:
+                    try:
+                        virtual = str2bool(request.GET['virtual'])
+                        if virtual and (area_obj or env_obj):
+                            ''' if the virtual flag is set to TRUE, then allow access, otherwise, check that 
+                            the user is actually checked-in where he says he is '''
+                            return True
+                    except ValueError:
+                        return False
+                
+                
+                user_profile = request.user.get_profile()  
+                return is_checked_in(user_profile, env_obj, area_obj)
+            
+        return False

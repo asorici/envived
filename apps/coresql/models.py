@@ -360,3 +360,50 @@ class Feature(models.Model):
     def get_resource_class(cls):
         return None
     
+"""
+######################################### Thing Model Class #############################################
+"""
+class Thing(models.Model):
+    area = models.ForeignKey(Area, null = True, blank = True, related_name = "thing")
+    environment = models.ForeignKey(Environment, null = True, blank = True, related_name = "thing")
+    #properties = models.ForeignKey(ThingProperty, null = True, blank = True, related_name = "thing")
+    is_general = models.BooleanField(default = False)
+    thing_type = models.CharField(max_length=50)
+    #version = models.SmallIntegerField(default = 1)
+    timestamp = models.DateTimeField()
+
+    # use the inheritance manager to get access directly to subclasses of Feature when w
+    # retrieving sets of Features
+    objects = InheritanceManager()
+    
+    class Meta:
+        unique_together = (("environment", "thing_type"), ("area", "thing_type"))
+    
+    
+    def to_serializable(self, request = None, virtual = False, include_data = False):
+        serialized_feature = {'thing_type' : self.thing_type, 
+                              'version' : self.version, 
+                              'timestamp': self.timestamp,
+                              'is_general': self.is_general
+                              }
+        if include_data:
+            serialized_feature['data'] = None
+        
+        return serialized_feature
+    
+    def __unicode__(self):
+        if self.area:
+            return "thing type(" + self.thing_type + ") for area(" + self.area.name + ")"
+        elif self.environment:
+            return "thing type(" + self.thing_type + ") for env(" + self.environment.name + ")"
+        else:
+            return "thing type(" + self.thing_type + ") but no location assigned -- needs fix"
+    
+    
+    def get_feature_data(self, bundle, virtual, filters):
+        return self.to_serializable(request = bundle.request, virtual = virtual, include_data = True)['data']
+    
+    
+    @classmethod
+    def get_resource_class(cls):
+        return None

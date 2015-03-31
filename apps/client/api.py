@@ -1,5 +1,5 @@
 from client.authorization import AnnotationAuthorization, UserAuthorization, \
-    FeatureAuthorization
+    FeatureAuthorization, ThingAuthorization
 from client.validation import AnnotationValidation
 from coresql.models import Environment, Area, Announcement, History, UserProfile, \
     ResearchProfile, UserContext, UserSubProfile
@@ -10,6 +10,7 @@ from django.core.exceptions import MultipleObjectsReturned
 from tastypie import fields, http
 from tastypie.api import Api
 from tastypie.authentication import Authentication
+from tastypie.authorization import Authorization
 from tastypie.exceptions import ImmediateHttpResponse, NotFound
 from tastypie.resources import ModelResource
 
@@ -27,6 +28,7 @@ class UserResource(ModelResource):
         excludes = ["id", "timestamp", "is_anonymous"]
         authentication = Authentication()
         authorization = UserAuthorization()
+	#authorization = Authorization()
         
     
     def build_filters(self, filters = None):
@@ -176,9 +178,13 @@ class EnvironmentResource(ModelResource):
         #api_name = 'v1/resources'
         #fields = ['name', 'data', 'tags', 'parentID', 'category', 'latitude', 'longitude', 'timestamp']
         excludes = ['width', 'height']
-        detail_allowed_methods = ['get']
-        list_allowed_methods = ['get']
+        filtering = {
+        	'owner' : ['exact']
+        }
+        #detail_allowed_methods = ['get']
+        #list_allowed_methods = ['get']
         authentication = Authentication()
+	authorization = Authorization()
         default_format = "application/json"
         
     def dehydrate_tags(self, bundle):
@@ -240,7 +246,7 @@ class EnvironmentResource(ModelResource):
 
 
 class AreaResource(ModelResource):
-    parent = fields.ForeignKey(EnvironmentResource, 'environment')
+    parent = fields.ForeignKey(EnvironmentResource, 'environment', null = True)
     features = fields.ListField()
     owner = fields.DictField()
     admin = fields.ForeignKey(UserResource, 'admin', null = True, full = True)
@@ -248,12 +254,14 @@ class AreaResource(ModelResource):
     class Meta:
         queryset = Area.objects.all()
         resource_name = 'area'
-        allowed_methods = ['get']
+        #allowed_methods = ['get']
         excludes = ['shape', 'layout']
         filtering = {
             'parent': ['exact'],
         }
         authentication = Authentication()
+	authorization = Authorization()
+	default_format = "application/json"
         
     
     def get_list(self, request, **kwargs):
@@ -311,7 +319,7 @@ class AreaResource(ModelResource):
                 feat_dict = feature.to_serializable(request = bundle.request, virtual = virtual)
                 if feat_dict:
                     ## attach resource_uri and area_uri
-                    # feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
+                    feat_dict['resource_uri'] = FeatureResource().get_resource_uri(feature)
                     feat_dict['resource_uri'] = feature_resource_class().get_resource_uri(feature)
                     feat_dict['area'] = self.get_resource_uri(bundle)
                     feature_list.append(feat_dict)
@@ -326,7 +334,7 @@ class AreaResource(ModelResource):
                 feat_dict = env_feat.to_serializable(request = bundle.request, virtual = virtual)
                 if feat_dict:
                     ## attach resource_uri and area_uri
-                    #feat_dict['resource_uri'] = FeatureResource().get_resource_uri(env_feat)
+                    feat_dict['resource_uri'] = FeatureResource().get_resource_uri(env_feat)
                     feat_dict['resource_uri'] = env_feat_resource_class().get_resource_uri(env_feat)
                     feat_dict['environment'] = EnvironmentResource().get_resource_uri(environment)
                     feature_list.append(feat_dict)
@@ -344,7 +352,7 @@ class AreaResource(ModelResource):
             del bundle.data['img_thumbnail_url']
         
         """ append level data from the layout reference of the Area obj """
-        bundle.data['level'] = bundle.obj.layout.level
+        #bundle.data['level'] = bundle.obj.layout.level
         
         """
         make bundle consistent for location parsing on mobile client: 
@@ -369,7 +377,7 @@ class FeatureResource(ModelResource):
     class Meta:
         # queryset = Feature.objects.select_subclasses()
         # resource_name = 'feature'
-        allowed_methods = ['get']
+        #allowed_methods = ['get']
         excludes = ['id', 'is_general']
         filtering = {
             'area' : ['exact'],
@@ -381,7 +389,7 @@ class FeatureResource(ModelResource):
     
     
     def base_urls(self):
-        from django.conf.urls.defaults import url
+        from django.conf.urls import url
         from tastypie.utils.urls import trailing_slash
         
         """
@@ -456,7 +464,101 @@ class FeatureResource(ModelResource):
     
         return bundle
     
+##########################################################################################################################################
 
+class ThingResource(ModelResource):
+    environment = fields.ForeignKey(EnvironmentResource, 'environment', null = True)
+    area = fields.ForeignKey(AreaResource, 'area', null = True)
+    thing_type = fields.CharField(attribute = 'thing_type')
+    data = fields.DictField()
+
+    class Meta:
+        excludes = ['id', 'is_general']
+        filtering = {
+            'area' : ['exact'],
+            'environment' : ['exact'],
+            'thing_type' : ['exact']
+        }
+        authentication = Authentication()
+        authorization = Authorization()
+        default_format = "application/json"
+    
+    def base_urls(self):
+        from django.conf.urls import url
+        from tastypie.utils.urls import trailing_slash
+        
+        """
+        The standard URLs this ``Resource`` should respond to.
+        """
+        return [
+            url(r"^things/(?P<resource_name>%s)%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('dispatch_list'), name="api_dispatch_list"),
+            url(r"^thins/(?P<resource_name>%s)/schema%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_schema'), name="api_get_schema"),
+            url(r"^things/(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('get_multiple'), name="api_get_multiple"),
+            url(r"^things/(?P<resource_name>%s)/(?P<%s>\w[\w/-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('dispatch_detail'), name="api_dispatch_detail"),
+        ]
+    
+    
+    def get_list(self, request, **kwargs):
+        """
+        override the list retrieval part to verify additionally that an ``area`` or ``environment`` 
+        and a ``thing_type`` filter exist otherwise reject the call with a HttpMethodNotAllowed
+        """
+        # if ('area' in request.GET or 'environment' in request.GET) and 'thing_type' in request.GET:
+        if 'area' in request.GET or 'environment' in request.GET:
+            return super(ThingResource, self).get_list(request, **kwargs)
+        else:
+            raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
+    
+    
+    def get_object_list(self, request):
+        from django.db.models import Q
+        
+        thing_obj_list = super(ThingResource, self).get_object_list(request)
+        
+        if 'area' in request.GET:
+            area_id = request.GET['area']
+            try:
+                area = Area.objects.get(id = area_id)
+                q1 = Q(area = area)
+                q2 = Q(environment = area.environment) & Q(is_general = True)
+                
+                return thing_obj_list.filter(q1 | q2)
+            except Area.DoesNotExist, ex:
+                raise ImmediateHttpResponse(response=http.HttpBadRequest(content=ex.get_message()))
+        
+        return thing_obj_list
+    
+    
+    def build_filters(self, filters = None):
+        
+        if filters is None:
+            filters = {}
+        
+        if 'area' in filters:
+            ## remove the filter since it has been handled in get_obj_list
+            del filters['area']
+          
+        orm_filters = super(ThingResource, self).build_filters(filters)
+        return orm_filters
+
+    def dehydrate_data(self, bundle):
+        ## retrieve the value of the virtual flag
+        virtual = get_virtual_flag_from_url(bundle.request)
+        
+        filters = bundle.request.GET.copy()
+        return bundle.obj.get_thing_data(bundle, virtual, filters)
+    
+
+    def dehydrate(self, bundle):
+        if bundle.obj.environment is None:
+            del bundle.data['environment']
+        
+        elif bundle.obj.area is None:
+            del bundle.data['area']
+    
+        return bundle
+
+###########################################################################################################################################
 
 class AnnouncementResource(ModelResource):
     environment = fields.ForeignKey(EnvironmentResource, 'environment')
@@ -465,7 +567,7 @@ class AnnouncementResource(ModelResource):
     class Meta:
         queryset = Announcement.objects.all()
         resource_name = 'announcement'
-        allowed_methods = ['get']
+        #allowed_methods = ['get']
         fields = ['data', 'timestamp']
         excludes = ['id']
         filtering = {
@@ -473,8 +575,9 @@ class AnnouncementResource(ModelResource):
             'environment': ['exact'],
             'timestamp': ['gt', 'gte'],
         }
+
         authentication = Authentication()
-    
+        authorization = Authorization()
     
     def get_list(self, request, **kwargs):
         ## override the list retrieval part to verify additionally that an ``environment`` or ``area`` filter exists
@@ -579,7 +682,7 @@ class AnnotationResource(ModelResource):
     
     
     def base_urls(self):
-        from django.conf.urls.defaults import url
+        from django.conf.urls import url
         from tastypie.utils.urls import trailing_slash
         
         """
@@ -850,7 +953,7 @@ class ClientApi(Api):
     
     '''
     def prepend_urls(self):
-        from django.conf.urls.defaults import url, include
+        from django.conf.urls import url, include
         from client.views import checkin, checkout, login, logout, register, create_anonymous, delete_anonymous
         
         prepended_urls = Api.prepend_urls(self)
@@ -892,7 +995,7 @@ class ClientApi(Api):
         ``Resources`` beneath it.
         """
         
-        from django.conf.urls.defaults import url, include
+        from django.conf.urls import url, include
         from tastypie.utils.urls import trailing_slash
         from client.views import checkin, checkout, login, logout, register, create_anonymous, delete_anonymous
         

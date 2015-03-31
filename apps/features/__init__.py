@@ -2,7 +2,7 @@
 #Import all api.py modules defined in the applications contained in the features package
 #
 
-import imp, os
+import imp, os, sys
 from path import path
 current_dir_path = path(__file__).abspath().dirname()
 
