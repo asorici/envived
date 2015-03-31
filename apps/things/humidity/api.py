@@ -1,5 +1,3 @@
-from tastypie import http
-from tastypie.exceptions import ImmediateHttpResponse
 from client.api import ThingResource 
 from models import HumidityThing
 

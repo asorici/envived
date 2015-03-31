@@ -1,12 +1,11 @@
 from tastypie import http
 from tastypie.exceptions import ImmediateHttpResponse
 from client.api import FeatureResource, AnnotationResource, EnvironmentResource, AreaResource
-from coresql.models import Annotation
 from coresql.exceptions import AnnotationException, DuplicateAnnotationException
 from models import DescriptionFeature, DescriptionAnnotation
 
 class DescriptionResource(FeatureResource):
-    
+     
     class Meta(FeatureResource.Meta):
         queryset = DescriptionFeature.objects.all()
         resource_name = DescriptionFeature.CATEGORY

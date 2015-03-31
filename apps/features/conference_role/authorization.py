@@ -3,7 +3,6 @@ Created on May 11, 2014
 
 @author: alex
 '''
-from django.db.models import Q
 from tastypie.authorization import Authorization
 from tastypie.serializers import Serializer
 from tastypie.exceptions import Unauthorized

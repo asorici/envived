@@ -382,7 +382,6 @@ class Thing(models.Model):
     
     def to_serializable(self, request = None, virtual = False, include_data = False):
         serialized_feature = {'thing_type' : self.thing_type, 
-                              'version' : self.version, 
                               'timestamp': self.timestamp,
                               'is_general': self.is_general
                               }
@@ -400,7 +399,7 @@ class Thing(models.Model):
             return "thing type(" + self.thing_type + ") but no location assigned -- needs fix"
     
     
-    def get_feature_data(self, bundle, virtual, filters):
+    def get_thing_data(self, bundle, virtual, filters):
         return self.to_serializable(request = bundle.request, virtual = virtual, include_data = True)['data']
     
     

@@ -12,6 +12,8 @@ class ProgramResource(FeatureResource):
         queryset = ProgramFeature.objects.all()
         resource_name = ProgramFeature.CATEGORY
         
+        fields = []
+        
         detail_allowed_methods = ["get", "put"]
         list_allowed_methods = []
         

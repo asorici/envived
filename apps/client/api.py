@@ -1,5 +1,4 @@
-from client.authorization import AnnotationAuthorization, UserAuthorization, \
-    FeatureAuthorization, ThingAuthorization
+from client.authorization import AnnotationAuthorization, UserAuthorization, FeatureAuthorization
 from client.validation import AnnotationValidation
 from coresql.models import Environment, Area, Announcement, History, UserProfile, \
     ResearchProfile, UserContext, UserSubProfile
@@ -28,7 +27,6 @@ class UserResource(ModelResource):
         excludes = ["id", "timestamp", "is_anonymous"]
         authentication = Authentication()
         authorization = UserAuthorization()
-	#authorization = Authorization()
         
     
     def build_filters(self, filters = None):
@@ -184,7 +182,7 @@ class EnvironmentResource(ModelResource):
         #detail_allowed_methods = ['get']
         #list_allowed_methods = ['get']
         authentication = Authentication()
-	authorization = Authorization()
+        authorization = Authorization()
         default_format = "application/json"
         
     def dehydrate_tags(self, bundle):
@@ -260,8 +258,8 @@ class AreaResource(ModelResource):
             'parent': ['exact'],
         }
         authentication = Authentication()
-	authorization = Authorization()
-	default_format = "application/json"
+        authorization = Authorization()
+        default_format = "application/json"
         
     
     def get_list(self, request, **kwargs):
