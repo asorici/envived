@@ -12,9 +12,9 @@ THINGS_ROOT = APPS_ROOT / 'things'
 
 LOCALE_PATHS = (PROJECT_ROOT / 'locale',)
 
-sys.path.insert(0, LIBS_ROOT)
-sys.path.insert(0, APPS_ROOT)
-sys.path.insert(0, SITE_ROOT)
+sys.path.append(SITE_ROOT)
+sys.path.append(APPS_ROOT)
+sys.path.append(LIBS_ROOT)
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -116,6 +116,7 @@ for app_dir in FEATURES_ROOT.dirs():
     if app_dir.files('models.py'):
         app_dir_path = app_dir.relpath(start = APPS_ROOT)
         app_module_path = ".".join(app_dir_path.splitall()[1:]) # ignore the first element in the splitall() because it is empty, as per documentation
+        #print "FEATURES: Installing ", app_module_path
         INSTALLED_APPS += (app_module_path,)
 
 # Registering all applications in the things package
@@ -123,6 +124,7 @@ for app_dir in THINGS_ROOT.dirs():
     if app_dir.files('models.py'):
         app_dir_path = app_dir.relpath(start = APPS_ROOT)
         app_module_path = ".".join(app_dir_path.splitall()[1:]) # ignore the first element in the splitall() because it is empty, as per documentation
+        #print "THINGS: Installing ", app_module_path
         INSTALLED_APPS += (app_module_path,)
         
 
@@ -155,7 +157,7 @@ LOGGING = {
 	'file' : {
 	    'level': 'ERROR',
 	    'class': 'logging.FileHandler',
-	    'filename': '/home/epew/environment_root/envived/error.log',
+	    'filename': '/home/alex/work/aquasoft/testproj/envived-virtualenv/envived/error.log',
 	}
     },
     'loggers': {
