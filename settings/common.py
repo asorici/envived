@@ -8,7 +8,6 @@ SITE_ROOT = PROJECT_ROOT.dirname()
 APPS_ROOT = PROJECT_ROOT / 'apps'
 LIBS_ROOT = PROJECT_ROOT / 'libs'
 FEATURES_ROOT = APPS_ROOT / 'features'
-#THINGS_ROOT = APPS_ROOT / 'things'
 
 LOCALE_PATHS = (PROJECT_ROOT / 'locale',)
 

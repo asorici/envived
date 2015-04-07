@@ -51,6 +51,10 @@ for ann_res_cls in AnnotationResource.__subclasses__():
     v2_api.register(ann_res_cls())
 
 
+urlpatterns = patterns('',
+    (r'', include(v2_api.urls)),
+)
+
 
 ## ==== Add all per things resource classes to the api
 ## To do this we must first import all api.py modules defined in the applications contained in the features package
@@ -66,8 +70,3 @@ for ann_res_cls in AnnotationResource.__subclasses__():
 # 
 # for thing_res_cls in ThingResource.__subclasses__():
 #     v2_api.register(thing_res_cls())
-    
-    
-urlpatterns = patterns('',
-    (r'', include(v2_api.urls)),
-)
