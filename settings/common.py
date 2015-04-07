@@ -8,7 +8,7 @@ SITE_ROOT = PROJECT_ROOT.dirname()
 APPS_ROOT = PROJECT_ROOT / 'apps'
 LIBS_ROOT = PROJECT_ROOT / 'libs'
 FEATURES_ROOT = APPS_ROOT / 'features'
-THINGS_ROOT = APPS_ROOT / 'things'
+#THINGS_ROOT = APPS_ROOT / 'things'
 
 LOCALE_PATHS = (PROJECT_ROOT / 'locale',)
 
@@ -120,12 +120,12 @@ for app_dir in FEATURES_ROOT.dirs():
         INSTALLED_APPS += (app_module_path,)
 
 # Registering all applications in the things package
-for app_dir in THINGS_ROOT.dirs():
-    if app_dir.files('models.py'):
-        app_dir_path = app_dir.relpath(start = APPS_ROOT)
-        app_module_path = ".".join(app_dir_path.splitall()[1:]) # ignore the first element in the splitall() because it is empty, as per documentation
-        #print "THINGS: Installing ", app_module_path
-        INSTALLED_APPS += (app_module_path,)
+# for app_dir in THINGS_ROOT.dirs():
+#     if app_dir.files('models.py'):
+#         app_dir_path = app_dir.relpath(start = APPS_ROOT)
+#         app_module_path = ".".join(app_dir_path.splitall()[1:]) # ignore the first element in the splitall() because it is empty, as per documentation
+#         #print "THINGS: Installing ", app_module_path
+#         INSTALLED_APPS += (app_module_path,)
         
 
 # Registering the Agent Application last, so as to send signals to the feature-specific models, that

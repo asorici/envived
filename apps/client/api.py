@@ -1,16 +1,18 @@
 from client.authorization import AnnotationAuthorization, UserAuthorization, FeatureAuthorization
 from client.validation import AnnotationValidation
 from coresql.models import Environment, Area, Announcement, History, UserProfile, \
-    ResearchProfile, UserContext, UserSubProfile
+    ResearchProfile, UserContext, UserSubProfile, Thing, ThingProperty
 from coresql.utils import str2bool
 from datetime import datetime
+
 from django.conf.urls import patterns
-from django.core.exceptions import MultipleObjectsReturned
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from tastypie import fields, http
 from tastypie.api import Api
 from tastypie.authentication import Authentication
 from tastypie.authorization import Authorization
 from tastypie.exceptions import ImmediateHttpResponse, NotFound
+from tastypie.http import HttpGone, HttpMultipleChoices
 from tastypie.resources import ModelResource
 
 
@@ -380,7 +382,8 @@ class FeatureResource(ModelResource):
         filtering = {
             'area' : ['exact'],
             'environment' : ['exact'],
-            'category' : ['exact']
+            'category' : ['exact'],
+            'timestamp' : ['exact','lte', 'gte']
         }
         authentication = Authentication()
         authorization = FeatureAuthorization()
@@ -463,14 +466,29 @@ class FeatureResource(ModelResource):
         return bundle
     
 ##########################################################################################################################################
+class ThingPropertyResource(ModelResource):
+    thing = fields.ToOneField('client.api.ThingResource', 'thing')
+    
+    class Meta:
+        resource_name = 'thing_properties'
+        queryset = ThingProperty.objects.all()
+        filtering = {
+            'timestamp' : ['exact', 'lte', 'gte'],
+            'type' : ['exact']
+        }
+        
+        authentication = Authentication()
+        authorization = Authorization()
 
 class ThingResource(ModelResource):
     environment = fields.ForeignKey(EnvironmentResource, 'environment', null = True)
     area = fields.ForeignKey(AreaResource, 'area', null = True)
     thing_type = fields.CharField(attribute = 'thing_type')
-    data = fields.DictField()
-
+    properties = fields.ToManyField(ThingPropertyResource, 'properties', full = False)
+    
     class Meta:
+        resource_name = "things"
+        queryset = Thing.objects.all()
         excludes = ['id', 'is_general']
         filtering = {
             'area' : ['exact'],
@@ -481,18 +499,26 @@ class ThingResource(ModelResource):
         authorization = Authorization()
         default_format = "application/json"
     
-    def base_urls(self):
+#     def base_urls(self):
+#         from django.conf.urls import url
+#         from tastypie.utils.urls import trailing_slash
+#         
+#         """
+#         The standard URLs this ``Resource`` should respond to.
+#         """
+#         return [
+#             url(r"^things/(?P<resource_name>%s)%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('dispatch_list'), name="api_dispatch_list"),
+#             url(r"^things/(?P<resource_name>%s)/schema%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_schema'), name="api_get_schema"),
+#             url(r"^things/(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('get_multiple'), name="api_get_multiple"),
+#             url(r"^things/(?P<resource_name>%s)/(?P<%s>\w[\w/-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('dispatch_detail'), name="api_dispatch_detail"),
+#         ]
+    
+    def prepend_urls(self):
         from django.conf.urls import url
         from tastypie.utils.urls import trailing_slash
-        
-        """
-        The standard URLs this ``Resource`` should respond to.
-        """
+
         return [
-            url(r"^things/(?P<resource_name>%s)%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('dispatch_list'), name="api_dispatch_list"),
-            url(r"^thins/(?P<resource_name>%s)/schema%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_schema'), name="api_get_schema"),
-            url(r"^things/(?P<resource_name>%s)/set/(?P<%s_list>\w[\w/;-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('get_multiple'), name="api_get_multiple"),
-            url(r"^things/(?P<resource_name>%s)/(?P<%s>\w[\w/-]*)%s$" % (self._meta.resource_name, self._meta.detail_uri_name, trailing_slash()), self.wrap_view('dispatch_detail'), name="api_dispatch_detail"),
+            url(r"^(?P<resource_name>%s)/(?P<pk>\w[\w/-]*)/properties%s$" % (self._meta.resource_name, trailing_slash()), self.wrap_view('get_properties'), name="api_get_properties"),
         ]
     
     
@@ -538,15 +564,8 @@ class ThingResource(ModelResource):
           
         orm_filters = super(ThingResource, self).build_filters(filters)
         return orm_filters
-
-    def dehydrate_data(self, bundle):
-        ## retrieve the value of the virtual flag
-        virtual = get_virtual_flag_from_url(bundle.request)
-        
-        filters = bundle.request.GET.copy()
-        return bundle.obj.get_thing_data(bundle, virtual, filters)
     
-
+    
     def dehydrate(self, bundle):
         if bundle.obj.environment is None:
             del bundle.data['environment']
@@ -555,7 +574,21 @@ class ThingResource(ModelResource):
             del bundle.data['area']
     
         return bundle
+    
+    
+    def get_properties(self, request, **kwargs):
+        try:
+            bundle = self.build_bundle(data={'pk': kwargs['pk']}, request=request)
+            obj = self.cached_obj_get(bundle=bundle, **self.remove_api_resource_names(kwargs))
+        except ObjectDoesNotExist:
+            return HttpGone()
+        except MultipleObjectsReturned:
+            return HttpMultipleChoices("More than one resource is found at this URI.")
 
+        property_resource = ThingPropertyResource()
+        return property_resource.get_list(request, thing_id=obj.pk)
+        
+        
 ###########################################################################################################################################
 
 class AnnouncementResource(ModelResource):
